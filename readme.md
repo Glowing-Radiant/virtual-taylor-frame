@@ -64,5 +64,5 @@ python virtual_taylor_frame.py
 Contributions to improve the Virtual Taylor Frame are welcome. Please feel free to submit pull requests or open issues to discuss potential enhancements.
 
 ## License
-we use MIT license.
 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
