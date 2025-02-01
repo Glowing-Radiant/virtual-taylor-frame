@@ -1,3 +1,4 @@
+# Python
 import os
 import sys
 import pygame
@@ -30,13 +31,14 @@ class VirtualTaylorFrame:
         self.auto_shift = False
         self.smart_delete = False
         self.fast_move = False
-        
+
     def resource_path(self, relative_path):
         try:
-            base_path = sys._MEIPASS  
+            base_path = sys._MEIPASS
         except AttributeError:
             base_path = os.path.abspath(".")
-        return os.path.join(base_path, relative_path)        
+        return os.path.join(base_path, relative_path)
+
     def __del__(self):
         tolk.unload()
 
@@ -71,7 +73,7 @@ class VirtualTaylorFrame:
             pygame.mixer.Sound.play(sound)
         except Exception as e:
             print(f"Error playing sound: {e}")
-        
+
     def move(self, direction):
         new_pos = self.current_pos + direction
         if 0 <= new_pos.x < self.cols and 0 <= new_pos.y < self.rows:
@@ -79,7 +81,7 @@ class VirtualTaylorFrame:
             self.play_sound(self.move_sound)
             self.play_cell_sound()
             self.speak_cell_content()
-            
+
     def snap_to_content(self, direction):
         while True:
             new_pos = self.current_pos + direction
@@ -105,7 +107,7 @@ class VirtualTaylorFrame:
                 elif cell_content == '^':
                     content += " power "
                 elif cell_content=='*':
-                    content+=" times"
+                    content += " times"
                 else:
                     content += cell_content
             elif content:
@@ -143,12 +145,12 @@ class VirtualTaylorFrame:
         else:
             self.play_sound(self.empty_sound)
             self.speak(",")
-        
+
     def clear_grid(self):
         self.grid = np.full((self.rows, self.cols), ' ', dtype=str)
         self.play_sound(self.empty_sound)
         self.speak("Grid cleared")
-        
+
     def play_cell_sound(self):
         x, y = int(self.current_pos.x), int(self.current_pos.y)
         content = self.grid[y][x]
@@ -172,17 +174,15 @@ class VirtualTaylorFrame:
             self.current_pos.y = 0 if direction.y < 0 else self.rows - 1
         self.play_sound(self.move_sound)
         self.speak_cell_content()
-        
+
     def move_down_to_next_stack(self):
         current_x = int(self.current_pos.x)
         current_y = int(self.current_pos.y)
-        
         start_x = 0
         for x in range(self.cols):
             if self.grid[current_y][x] != ' ':
                 start_x = x
                 break
-        
         new_y = min(current_y + 2, self.rows - 1)
         self.current_pos = Vector2(start_x, new_y)
         self.play_sound(self.move_sound)
@@ -206,6 +206,7 @@ class VirtualTaylorFrame:
         F2: Toggle auto-shift cursor.
         F3: Toggle smart delete.
         F4: Toggle fast move.
+        F5: Resize grid.
         Arrow keys: Move cursor.
         Ctrl + Arrow keys: Snap to content.
         Shift + Down: Move to next stack.
@@ -216,7 +217,56 @@ class VirtualTaylorFrame:
         Ctrl + Backspace: Clear entire grid.
         """
         self.speak(help_text)
-        
+
+    def prompt_grid_resize(self):
+        input_str = ""
+        active = True
+        prompt_text = "Enter new grid size (rows,cols): "
+        # Speak initial prompt message.
+        self.speak("Type in the values to resize and hit enter. Press Escape to cancel.")
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.speak("Resizing canceled, returning to main window.")
+                        active = False
+                        input_str = ""  # Reset input.
+                        break
+                    elif event.key == pygame.K_RETURN:
+                        active = False
+                        break
+                    elif event.key == pygame.K_BACKSPACE:
+                        input_str = input_str[:-1]
+                    else:
+                        input_str += event.unicode
+            self.screen.fill((255, 255, 255))
+            prompt_surface = self.font.render(prompt_text + input_str, True, (0, 0, 0))
+            self.screen.blit(prompt_surface, (20, (self.rows * self.cell_size) // 2))
+            pygame.display.flip()
+        # Process the input only if it's not empty.
+        if input_str:
+            try:
+                parts = input_str.split(",")
+                if len(parts) == 2:
+                    new_rows = int(parts[0].strip())
+                    new_cols = int(parts[1].strip())
+                    self.rows = new_rows
+                    self.cols = new_cols
+                    self.grid = np.full((new_rows, new_cols), ' ', dtype=str)
+                    self.current_pos = pygame.math.Vector2(0, 0)
+                    self.screen = pygame.display.set_mode((new_cols * self.cell_size, new_rows * self.cell_size))
+                    self.speak("Grid resized")
+                else:
+                    self.speak("Invalid input. Grid size not changed.")
+            except Exception as e:
+                self.speak("Invalid input. Grid size not changed.")
+        # Speak a message to indicate returning to the main screen if not canceled explicitly.
+        elif input_str == "":
+            self.speak("Returning to main window.")
+
     def draw(self):
         self.screen.fill((255, 255, 255))
         for y in range(self.rows):
@@ -227,13 +277,11 @@ class VirtualTaylorFrame:
                     text = self.font.render(str(self.grid[y][x]), True, (0, 0, 0))
                     text_rect = text.get_rect(center=rect.center)
                     self.screen.blit(text, text_rect)
-        
         current_rect = pygame.Rect(self.current_pos.x * self.cell_size, self.current_pos.y * self.cell_size, 
                                    self.cell_size, self.cell_size)
         pygame.draw.rect(self.screen, (255, 0, 0), current_rect, 3)
-        
         pygame.display.flip()
-        
+
     def run(self):
         running = True
         while running:
@@ -250,6 +298,8 @@ class VirtualTaylorFrame:
                             self.toggle_smart_delete()
                         elif event.key == pygame.K_F4:
                             self.toggle_fast_move()
+                        elif event.key == pygame.K_F5:
+                            self.prompt_grid_resize()
                         elif event.key == pygame.K_UP:
                             if self.ctrl_pressed:
                                 self.snap_to_content(Vector2(0, -1))
@@ -308,7 +358,7 @@ class VirtualTaylorFrame:
                             self.alt_pressed = False
                         elif event.key in [pygame.K_LSHIFT, pygame.K_RSHIFT]:
                             self.shift_pressed = False
-                
+
                 if self.fast_move:
                     keys = pygame.key.get_pressed()
                     if keys[pygame.K_UP]:
@@ -319,13 +369,13 @@ class VirtualTaylorFrame:
                         self.move(Vector2(-1, 0))
                     if keys[pygame.K_RIGHT]:
                         self.move(Vector2(1, 0))
-                
+
                 self.draw()
             except Exception as e:
                 print(f"An error occurred: {e}")
                 print(traceback.format_exc())
                 running = False
-        
+
         pygame.quit()
 
 if __name__ == "__main__":
