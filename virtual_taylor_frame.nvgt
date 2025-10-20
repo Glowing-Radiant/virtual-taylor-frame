@@ -1,0 +1,331 @@
+#include "speech.nvgt"
+
+sound@ g_empty_sound;
+sound@ g_content_sound;
+sound@ g_move_sound;
+
+class VirtualTaylorFrame {
+    int rows;
+    int cols;
+    grid<string> grid;
+    vector current_pos;
+    bool auto_shift;
+    bool smart_delete;
+    bool fast_move;
+
+    VirtualTaylorFrame(int initial_rows, int initial_cols) {
+        this.rows = initial_rows;
+        this.cols = initial_cols;
+        this.resize_grid(initial_rows, initial_cols);
+        this.current_pos = vector(0, 0, 0);
+        this.auto_shift = false;
+        this.smart_delete = false;
+        this.fast_move = false;
+    }
+
+    void run() {
+        speak("Virtual Taylor Frame loaded. Press F1 for help.");
+        this.speak_cell_content();
+        while (true) {
+            wait(5);
+            if (this.fast_move) {
+                if (key_repeating(KEY_UP)) this.move(vector(0, -1, 0));
+                if (key_repeating(KEY_DOWN)) this.move(vector(0, 1, 0));
+                if (key_repeating(KEY_LEFT)) this.move(vector(-1, 0, 0));
+                if (key_repeating(KEY_RIGHT)) this.move(vector(1, 0, 0));
+            }
+            int[]@ pressed = keys_pressed();
+            if (pressed.length() > 0) {
+                handle_key_press(pressed[0]);
+            }
+            string chars = get_characters();
+            if (chars.length() > 0) {
+                for (uint i = 0; i < chars.length(); i++) {
+                    this.input_value(chars.substr(i, 1));
+                }
+            }
+        }
+    }
+
+    void handle_key_press(int key) {
+        bool ctrl = key_down(KEY_LCTRL) or key_down(KEY_RCTRL);
+        bool shift = key_down(KEY_LSHIFT) or key_down(KEY_RSHIFT);
+
+        if (key == KEY_ESCAPE) exit();
+
+        if (key == KEY_F1) this.show_help();
+        else if (key == KEY_F2) this.toggle_auto_shift();
+        else if (key == KEY_F3) this.toggle_smart_delete();
+        else if (key == KEY_F4) this.toggle_fast_move();
+        else if (key == KEY_F5) this.prompt_grid_resize();
+        else if (key == KEY_UP) {
+            if (ctrl) this.snap_to_content(vector(0, -1, 0));
+            else this.move(vector(0, -1, 0));
+        }
+        else if (key == KEY_DOWN) {
+            if (ctrl) this.snap_to_content(vector(0, 1, 0));
+            else if (shift) this.move_down_to_next_stack();
+            else this.move(vector(0, 1, 0));
+        }
+        else if (key == KEY_LEFT) {
+            if (ctrl) this.snap_to_content(vector(-1, 0, 0));
+            else this.move(vector(-1, 0, 0));
+        }
+        else if (key == KEY_RIGHT) {
+            if (ctrl) this.snap_to_content(vector(1, 0, 0));
+            else this.move(vector(1, 0, 0));
+        }
+        else if (key == KEY_HOME) {
+            if (ctrl) this.move_to_edge(vector(0, 0, 0));
+            else this.move_to_edge(vector(0, this.current_pos.y, 0));
+        }
+        else if (key == KEY_END) {
+            if (ctrl) this.move_to_edge(vector(this.cols - 1, this.rows - 1, 0));
+            else this.move_to_edge(vector(this.cols - 1, this.current_pos.y, 0));
+        }
+        else if (key == KEY_PAGEUP and ctrl) this.move_to_edge(vector(this.current_pos.x, 0, 0));
+        else if (key == KEY_PAGEDOWN and ctrl) this.move_to_edge(vector(this.current_pos.x, this.rows - 1, 0));
+        else if (key == KEY_BACK) {
+            if (ctrl) this.clear_grid();
+            else this.delete_value();
+        }
+    }
+
+    void speak(const string&in text) {
+        string to_speak = "";
+        for (uint i = 0; i < text.length(); i++) {
+            string char = text.substr(i, 1);
+            if (char == "(") to_speak += " left paren ";
+            else if (char == ")") to_speak += " right paren ";
+            else if (char == "[") to_speak += " left bracket ";
+            else if (char == "]") to_speak += " right bracket ";
+            else if (char == "{") to_speak += " left brace ";
+            else if (char == "}") to_speak += " right brace ";
+            else if (char == "-") to_speak += " minus ";
+            else if (char == "^") to_speak += " power ";
+            else if (char == "*") to_speak += " times ";
+            else to_speak += char;
+        }
+        screen_reader_speak(to_speak.trim_whitespace(), true);
+    }
+
+    void play_sound(sound@ s) {
+        if (@s != null and s.active) {
+            s.stop();
+            s.play();
+        }
+    }
+
+    void move(const vector&in direction, bool silent = false) {
+        vector new_pos = this.current_pos + direction;
+        if (new_pos.x >= 0 and new_pos.x < this.cols and new_pos.y >= 0 and new_pos.y < this.rows) {
+            this.current_pos = new_pos;
+            if (!silent) {
+                play_sound(g_move_sound);
+                play_cell_sound();
+                speak_cell_content();
+            }
+        }
+    }
+
+    void snap_to_content(const vector&in direction) {
+        vector original_pos = this.current_pos;
+        while (true) {
+            vector new_pos = this.current_pos + direction;
+            if (new_pos.x < 0 or new_pos.x >= this.cols or new_pos.y < 0 or new_pos.y >= this.rows) {
+                this.current_pos = original_pos;
+                play_cell_sound();
+                speak_content_stack();
+                break;
+            }
+            this.current_pos = new_pos;
+            if (this.grid[int(new_pos.y), int(new_pos.x)] != " ") {
+                play_cell_sound();
+                speak_content_stack();
+                break;
+            }
+        }
+    }
+
+    void speak_content_stack() {
+        int y = int(this.current_pos.y);
+        string content = "";
+        for (int x = 0; x < this.cols; x++) {
+            string cell = this.grid[y, x];
+            if (cell != " ") {
+                content += cell;
+            } else {
+                if (content.length() > 0) break;
+            }
+        }
+        if (content.length() > 0) {
+            this.speak(content);
+        } else {
+            speak_cell_content();
+        }
+    }
+
+    void input_value(const string&in value) {
+        int x = int(this.current_pos.x);
+        int y = int(this.current_pos.y);
+        this.grid[y, x] = value;
+        play_cell_sound();
+        this.speak(value);
+        if (this.auto_shift) {
+            this.move(vector(1, 0, 0), true);
+        }
+    }
+
+    void delete_value() {
+        int x = int(this.current_pos.x);
+        int y = int(this.current_pos.y);
+        if (this.grid[y, x] != " ") {
+            this.grid[y, x] = " ";
+            play_sound(g_empty_sound);
+            this.speak("Deleted");
+        } else if (this.smart_delete) {
+            this.move(vector(-1, 0, 0));
+            x = int(this.current_pos.x);
+            y = int(this.current_pos.y);
+            if (this.grid[y, x] != " ") {
+                this.grid[y, x] = " ";
+                play_sound(g_empty_sound);
+                this.speak("Deleted");
+            } else {
+                play_sound(g_empty_sound);
+                this.speak(",");
+            }
+        } else {
+            play_sound(g_empty_sound);
+            this.speak(",");
+        }
+    }
+
+    void clear_grid() {
+        resize_grid(this.rows, this.cols);
+        play_sound(g_empty_sound);
+        this.speak("Grid cleared");
+    }
+
+    void play_cell_sound() {
+        int x = int(this.current_pos.x);
+        int y = int(this.current_pos.y);
+        if (this.grid[y, x] == " ") {
+            play_sound(g_empty_sound);
+        } else {
+            play_sound(g_content_sound);
+        }
+    }
+
+    void speak_cell_content() {
+        int x = int(this.current_pos.x);
+        int y = int(this.current_pos.y);
+        string content = this.grid[y, x];
+        if (content == " ") {
+            this.speak(",");
+        } else {
+            this.speak(content);
+        }
+    }
+
+    void move_to_edge(const vector&in target_pos) {
+        this.current_pos = target_pos;
+        play_sound(g_move_sound);
+        speak_cell_content();
+    }
+    
+    void move_down_to_next_stack() {
+        int current_y = int(this.current_pos.y);
+        int start_x = 0;
+        for (int x = 0; x < this.cols; x++) {
+            if (this.grid[current_y, x] != " ") {
+                start_x = x;
+                break;
+            }
+        }
+        int new_y = current_y + 2;
+        if (new_y >= this.rows) new_y = this.rows - 1;
+        this.current_pos = vector(start_x, new_y, 0);
+        play_sound(g_move_sound);
+        speak_cell_content();
+    }
+
+    void toggle_auto_shift() {
+        this.auto_shift = !this.auto_shift;
+        this.speak("Auto shift " + (this.auto_shift ? "on" : "off"));
+    }
+
+    void toggle_smart_delete() {
+        this.smart_delete = !this.smart_delete;
+        this.speak("Smart delete " + (this.smart_delete ? "on" : "off"));
+    }
+
+    void toggle_fast_move() {
+        this.fast_move = !this.fast_move;
+        this.speak("Fast move " + (this.fast_move ? "on" : "off"));
+    }
+
+    void show_help() {
+        string help_text = "F1: Show this help. "
+            "F2: Toggle auto-shift cursor. "
+            "F3: Toggle smart delete. "
+            "F4: Toggle fast move. "
+            "F5: Resize grid. "
+            "Arrow keys to move. "
+            "Control plus Arrow keys to snap to content. "
+            "Shift + Down to move to next stack. "
+            "Home or End to move to start or end of row. "
+            "Control + Home or End for grid start or end. "
+            "Backspace to delete. "
+            "Control + Backspace to clear grid. "
+            "Escape to exit.";
+        this.speak(help_text);
+    }
+    
+    void prompt_grid_resize() {
+        string result = input_box("Resize Grid", "Enter new size (rows,cols):", this.rows + "," + this.cols);
+        if (result.empty()) {
+            this.speak("Resize canceled.");
+            return;
+        }
+        
+        string[]@ parts = result.split(",");
+        if (parts.length() == 2) {
+            int new_rows = parse_int(parts[0]);
+            int new_cols = parse_int(parts[1]);
+            
+            if (new_rows > 0 and new_cols > 0) {
+                this.resize_grid(new_rows, new_cols);
+                this.speak("Grid resized to " + new_rows + " by " + new_cols);
+            } else {
+                this.speak("Invalid dimensions. Grid not resized.");
+            }
+        } else {
+            this.speak("Invalid format. Grid not resized.");
+        }
+    }
+    
+    void resize_grid(int new_rows, int new_cols) {
+        this.rows = new_rows;
+        this.cols = new_cols;
+        this.grid.resize(new_rows, new_cols);
+        for (int y = 0; y < new_rows; y++) {
+            for (int x = 0; x < new_cols; x++) {
+                this.grid[y, x] = " ";
+            }
+        }
+        this.current_pos = vector(0, 0, 0);
+    }
+}
+
+void main() {
+    @g_empty_sound = sound();
+    g_empty_sound.load("empty.wav");
+    @g_content_sound = sound();
+    g_content_sound.load("content.wav");
+    @g_move_sound = sound();
+    g_move_sound.load("move.wav");
+    show_window("Virtual Taylor Frame");
+    VirtualTaylorFrame frame(18, 25);
+    frame.run();
+}
