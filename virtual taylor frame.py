@@ -31,6 +31,8 @@ class VirtualTaylorFrame:
         self.auto_shift = False
         self.smart_delete = False
         self.fast_move = False
+        self.last_move_time = 0
+
 
     def resource_path(self, relative_path):
         try:
@@ -264,10 +266,51 @@ class VirtualTaylorFrame:
             except Exception as e:
                 self.speak("Invalid input. Grid size not changed.")
         # Speak a message to indicate returning to the main screen if not canceled explicitly.
-        elif input_str == "":
+        if input_str == "":
             self.speak("Returning to main window.")
 
+    def confirm_exit(self):
+        active = True
+        options = ["Yes", "No"]
+        selected_index = 0
+        
+        self.speak(f"Do you want to exit? {options[selected_index]}")
+        
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                        selected_index = 1 - selected_index
+                        self.play_sound(self.move_sound)
+                        self.speak(options[selected_index])
+                    elif event.key == pygame.K_RETURN:
+                        if selected_index == 0: # Yes
+                            pygame.quit()
+                            sys.exit()
+                        else: # No
+                            self.speak("Returning to program")
+                            active = False
+                    elif event.key == pygame.K_ESCAPE:
+                        self.speak("Returning to program")
+                        active = False
+            
+            self.screen.fill((255, 255, 255))
+            prompt_text = "Do you want to exit?"
+            text_surface = self.font.render(prompt_text, True, (0, 0, 0))
+            self.screen.blit(text_surface, (20, (self.rows * self.cell_size) // 2 - 40))
+            
+            for i, option in enumerate(options):
+                color = (255, 0, 0) if i == selected_index else (0, 0, 0)
+                opt_surface = self.font.render(option, True, color)
+                self.screen.blit(opt_surface, (20, (self.rows * self.cell_size) // 2 + i * 40))
+                
+            pygame.display.flip()
+
     def draw(self):
+
         self.screen.fill((255, 255, 255))
         for y in range(self.rows):
             for x in range(self.cols):
@@ -288,8 +331,11 @@ class VirtualTaylorFrame:
             try:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        running = False
+                        self.confirm_exit()
                     elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            self.confirm_exit()
+
                         if event.key == pygame.K_F1:
                             self.show_help()
                         elif event.key == pygame.K_F2:
@@ -300,6 +346,8 @@ class VirtualTaylorFrame:
                             self.toggle_fast_move()
                         elif event.key == pygame.K_F5:
                             self.prompt_grid_resize()
+                        elif event.key == pygame.K_RETURN:
+                             self.move_down_to_next_stack()
                         elif event.key == pygame.K_UP:
                             if self.ctrl_pressed:
                                 self.snap_to_content(Vector2(0, -1))
@@ -360,15 +408,26 @@ class VirtualTaylorFrame:
                             self.shift_pressed = False
 
                 if self.fast_move:
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_UP]:
-                        self.move(Vector2(0, -1))
-                    if keys[pygame.K_DOWN]:
-                        self.move(Vector2(0, 1))
-                    if keys[pygame.K_LEFT]:
-                        self.move(Vector2(-1, 0))
-                    if keys[pygame.K_RIGHT]:
-                        self.move(Vector2(1, 0))
+                    current_time = pygame.time.get_ticks()
+                    if current_time - self.last_move_time > 100: # 100ms delay
+                        keys = pygame.key.get_pressed()
+                        moved = False
+                        if keys[pygame.K_UP]:
+                            self.move(Vector2(0, -1))
+                            moved = True
+                        if keys[pygame.K_DOWN]:
+                            self.move(Vector2(0, 1))
+                            moved = True
+                        if keys[pygame.K_LEFT]:
+                            self.move(Vector2(-1, 0))
+                            moved = True
+                        if keys[pygame.K_RIGHT]:
+                            self.move(Vector2(1, 0))
+                            moved = True
+                        
+                        if moved:
+                            self.last_move_time = current_time
+
 
                 self.draw()
             except Exception as e:
