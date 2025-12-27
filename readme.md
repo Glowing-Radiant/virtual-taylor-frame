@@ -50,6 +50,10 @@ nvgt virtual_taylor_frame.nvgt
 ## Controls
 
 - Arrow keys: Move cursor
+- Alt + Arrows (Up/Down): Read previous/next content line (skips empty rows)
+- Alt + L: Read current line
+- Enter: Move to next stack
+- Ctrl + Enter: Evaluate math expression
 - Ctrl + Arrow keys: Snap to content
 - Shift + Down: Move to next stack
 - Home/End: Move to start/end of row
@@ -57,10 +61,13 @@ nvgt virtual_taylor_frame.nvgt
 - Ctrl + PageUp/PageDown: Move to top/bottom of column
 - Backspace: Delete content
 - Ctrl + Backspace: Clear entire grid
+- Escape: Exit program (with confirmation)
 - F1: Show help message
 - F2: Toggle auto-shift cursor
 - F3: Toggle smart delete
 - F4: Toggle fast move
+- F5: Resize grid
+
 
 ### Special Characters
 

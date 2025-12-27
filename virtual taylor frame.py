@@ -8,6 +8,8 @@ from pygame.math import Vector2
 from cytolk import tolk
 import traceback
 import string
+import math
+
 
 class VirtualTaylorFrame:
     def __init__(self, rows, cols):
@@ -169,6 +171,93 @@ class VirtualTaylorFrame:
         else:
             self.speak(content)
 
+    def speak_row(self, row_index):
+        if 0 <= row_index < self.rows:
+            content = "".join(self.grid[row_index]).strip()
+            # Normalize spaces: split by whitespace and join with single space
+            cleaned_content = " ".join(content.split())
+            if not cleaned_content:
+                self.speak("Blank")
+            else:
+                self.speak(cleaned_content)
+        else:
+            self.speak("No row")
+
+    def move_to_next_content_row(self, direction):
+        # direction: -1 for Up (Previous), 1 for Down (Next)
+        start_y = int(self.current_pos.y) + direction
+        
+        # Determine range based on direction
+        if direction > 0:
+             search_range = range(start_y, self.rows)
+        else:
+             search_range = range(start_y, -1, -1)
+             
+        found = False
+        for y in search_range:
+            content = "".join(self.grid[y]).strip()
+            if content: # Found non-empty row
+                self.current_pos.y = y
+                self.current_pos.x = 0 # Move to start of line
+                self.play_sound(self.move_sound)
+                self.speak_row(y)
+                found = True
+                break
+        
+        if not found:
+            self.speak("No more content")
+
+
+    def evaluate_row(self):
+
+
+        y = int(self.current_pos.y)
+        row_content = "".join(self.grid[y]).strip()
+        
+        # Security/Sanity check: only allow safe characters
+        allowed = set(string.digits + " .+-*/()^" + string.ascii_letters)
+        if not set(row_content).issubset(allowed):
+             self.speak("Error: Invalid characters in expression")
+             return
+
+        # Prepare expression for Python eval
+        expression = row_content.replace("^", "**")
+        
+        # Support basic math constants/functions in eval context
+        context = {k: v for k, v in math.__dict__.items() if not k.startswith("__")}
+        
+        try:
+            # Evaluate
+            result = eval(expression, {"__builtins__": None}, context)
+            
+            # Format result
+            if isinstance(result, float) and result.is_integer():
+                result = int(result)
+            
+            result_str = f" = {result}"
+            
+            # Append to grid
+            # Find the end of the current content
+            end_x = 0
+            for x in range(self.cols):
+                if self.grid[y][x] != ' ':
+                    end_x = x
+            
+            start_put_x = end_x + 1
+            if start_put_x + len(result_str) < self.cols:
+                 for i, char in enumerate(result_str):
+                     self.grid[y][start_put_x + i] = char
+                 
+                 self.speak(f"equals {result}")
+                 self.play_sound(self.content_sound)
+            else:
+                self.speak(f"Result is {result}, but no space to write it correctly.")
+                
+        except Exception as e:
+            self.speak("Error evaluating expression")
+            print(f"Eval error: {e}")
+
+
     def move_to_edge(self, direction):
         if direction.x != 0:
             self.current_pos.x = 0 if direction.x < 0 else self.cols - 1
@@ -210,6 +299,10 @@ class VirtualTaylorFrame:
         F4: Toggle fast move.
         F5: Resize grid.
         Arrow keys: Move cursor.
+        Alt + Arrows (Up/Down): Read previous/next content line.
+        Alt + L: Read current line.
+        Ctrl + Enter: Evaluate math expression.
+        Enter: Move to next stack (same as Shift + Down).
         Ctrl + Arrow keys: Snap to content.
         Shift + Down: Move to next stack.
         Home/End: Move to start/end of row.
@@ -217,6 +310,7 @@ class VirtualTaylorFrame:
         Ctrl + PageUp/PageDown: Move to top/bottom of column.
         Backspace: Delete content.
         Ctrl + Backspace: Clear entire grid.
+        Escape: Exit program (with confirmation).
         """
         self.speak(help_text)
 
@@ -346,20 +440,32 @@ class VirtualTaylorFrame:
                             self.toggle_fast_move()
                         elif event.key == pygame.K_F5:
                             self.prompt_grid_resize()
+                        elif event.key == pygame.K_l:
+                            if self.alt_pressed:
+                                self.speak_row(int(self.current_pos.y))
                         elif event.key == pygame.K_RETURN:
-                             self.move_down_to_next_stack()
+                             if self.ctrl_pressed:
+                                 self.evaluate_row()
+                             else:
+                                 self.move_down_to_next_stack()
                         elif event.key == pygame.K_UP:
                             if self.ctrl_pressed:
                                 self.snap_to_content(Vector2(0, -1))
+                            elif self.alt_pressed:
+                                self.move_to_next_content_row(-1)
                             else:
                                 self.move(Vector2(0, -1))
                         elif event.key == pygame.K_DOWN:
                             if self.ctrl_pressed:
                                 self.snap_to_content(Vector2(0, 1))
+                            elif self.alt_pressed:
+                                self.move_to_next_content_row(1)
                             elif self.shift_pressed:
                                 self.move_down_to_next_stack()
                             else:
                                 self.move(Vector2(0, 1))
+
+
                         elif event.key == pygame.K_LEFT:
                             if self.ctrl_pressed:
                                 self.snap_to_content(Vector2(-1, 0))
