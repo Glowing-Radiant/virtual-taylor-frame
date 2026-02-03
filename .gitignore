@@ -1,0 +1,7 @@
+build/
+dist/
+equation.txt
+equation.vtf
+test.txt
+test.vtf
+virtual taylor frame.spec
