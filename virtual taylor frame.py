@@ -9,6 +9,7 @@ from cytolk import tolk
 import traceback
 import string
 import math
+import json
 
 
 class VirtualTaylorFrame:
@@ -298,6 +299,9 @@ class VirtualTaylorFrame:
         F3: Toggle smart delete.
         F4: Toggle fast move.
         F5: Resize grid.
+        Ctrl + S: Save (writes .vtf and .txt).
+        Ctrl + O: Load (.vtf).
+        Ctrl + E: Export text (.txt).
         Arrow keys: Move cursor.
         Alt + Arrows (Up/Down): Read previous/next content line.
         Alt + L: Read current line.
@@ -313,6 +317,159 @@ class VirtualTaylorFrame:
         Escape: Exit program (with confirmation).
         """
         self.speak(help_text)
+
+    def prompt_text_input(self, prompt_text, spoken_prompt, allow_empty=False):
+        input_str = ""
+        active = True
+        # Reset modifier states so they don't get "stuck" after modal prompts.
+        self.ctrl_pressed = False
+        self.alt_pressed = False
+        self.shift_pressed = False
+        self.speak(spoken_prompt)
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.speak("Canceled.")
+                        active = False
+                        input_str = ""
+                        break
+                    elif event.key == pygame.K_RETURN:
+                        active = False
+                        break
+                    elif event.key == pygame.K_BACKSPACE:
+                        input_str = input_str[:-1]
+                    else:
+                        input_str += event.unicode
+                elif event.type == pygame.KEYUP:
+                    if event.key in [pygame.K_LCTRL, pygame.K_RCTRL]:
+                        self.ctrl_pressed = False
+                    elif event.key in [pygame.K_LALT, pygame.K_RALT]:
+                        self.alt_pressed = False
+                    elif event.key in [pygame.K_LSHIFT, pygame.K_RSHIFT]:
+                        self.shift_pressed = False
+            self.screen.fill((255, 255, 255))
+            prompt_surface = self.font.render(prompt_text + input_str, True, (0, 0, 0))
+            self.screen.blit(prompt_surface, (20, (self.rows * self.cell_size) // 2))
+            pygame.display.flip()
+
+        if input_str == "" and not allow_empty:
+            return ""
+        self.ctrl_pressed = False
+        self.alt_pressed = False
+        self.shift_pressed = False
+        return input_str.strip()
+
+    def _derive_save_paths(self, user_path):
+        path = user_path.strip().strip("\"")
+        base, ext = os.path.splitext(path)
+        if ext.lower() in [".vtf", ".txt"]:
+            base_path = base
+        else:
+            base_path = path
+        return base_path + ".vtf", base_path + ".txt"
+
+    def _grid_to_text_lines(self):
+        lines = []
+        for y in range(self.rows):
+            line = "".join(self.grid[y]).rstrip()
+            lines.append(line)
+        return lines
+
+    def save_state(self):
+        user_path = self.prompt_text_input(
+            "Save base filename (no extension): ",
+            "Type a filename to save, then press Enter. Escape cancels."
+        )
+        if not user_path:
+            return
+        vtf_path, txt_path = self._derive_save_paths(user_path)
+        data = {
+            "version": 1,
+            "rows": self.rows,
+            "cols": self.cols,
+            "grid": self._grid_to_text_lines(),
+            "cursor": {"x": int(self.current_pos.x), "y": int(self.current_pos.y)}
+        }
+        try:
+            with open(vtf_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=True, indent=2)
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(self._grid_to_text_lines()))
+            self.speak("Saved.")
+        except Exception as e:
+            self.speak("Error saving file.")
+            print(f"Save error: {e}")
+
+    def export_text(self):
+        user_path = self.prompt_text_input(
+            "Export filename (.txt): ",
+            "Type a text filename to export, then press Enter. Escape cancels."
+        )
+        if not user_path:
+            return
+        base, ext = os.path.splitext(user_path.strip().strip("\""))
+        txt_path = user_path if ext else base + ".txt"
+        try:
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(self._grid_to_text_lines()))
+            self.speak("Exported.")
+        except Exception as e:
+            self.speak("Error exporting file.")
+            print(f"Export error: {e}")
+
+    def load_state(self):
+        user_path = self.prompt_text_input(
+            "Load filename (.vtf): ",
+            "Type a filename to load, then press Enter. Escape cancels."
+        )
+        if not user_path:
+            return
+        base, ext = os.path.splitext(user_path.strip().strip("\""))
+        vtf_path = user_path if ext else base + ".vtf"
+        if ext and ext.lower() != ".vtf":
+            self.speak("Please load a .vtf file.")
+            return
+        try:
+            with open(vtf_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self._apply_loaded_state(data)
+            self.speak("Loaded.")
+        except Exception as e:
+            self.speak("Error loading file.")
+            print(f"Load error: {e}")
+
+    def _apply_loaded_state(self, data):
+        rows = int(data.get("rows", self.rows))
+        cols = int(data.get("cols", self.cols))
+        grid_data = data.get("grid", [])
+        new_grid = np.full((rows, cols), ' ', dtype=str)
+
+        for y in range(min(rows, len(grid_data))):
+            row = grid_data[y]
+            if isinstance(row, list):
+                row_str = "".join(row)
+            else:
+                row_str = str(row)
+            for x, ch in enumerate(row_str[:cols]):
+                new_grid[y][x] = ch
+
+        self.rows = rows
+        self.cols = cols
+        self.grid = new_grid
+
+        cursor = data.get("cursor", {})
+        cx = int(cursor.get("x", 0))
+        cy = int(cursor.get("y", 0))
+        if 0 <= cx < self.cols and 0 <= cy < self.rows:
+            self.current_pos = Vector2(cx, cy)
+        else:
+            self.current_pos = Vector2(0, 0)
+
+        self.screen = pygame.display.set_mode((self.cols * self.cell_size, self.rows * self.cell_size))
 
     def prompt_grid_resize(self):
         input_str = ""
@@ -476,6 +633,15 @@ class VirtualTaylorFrame:
                                 self.snap_to_content(Vector2(1, 0))
                             else:
                                 self.move(Vector2(1, 0))
+                        elif event.key == pygame.K_s:
+                            if self.ctrl_pressed:
+                                self.save_state()
+                        elif event.key == pygame.K_o:
+                            if self.ctrl_pressed:
+                                self.load_state()
+                        elif event.key == pygame.K_e:
+                            if self.ctrl_pressed:
+                                self.export_text()
                         elif event.key == pygame.K_HOME:
                             if self.ctrl_pressed:
                                 self.move_to_edge(Vector2(-1, -1))
@@ -503,7 +669,7 @@ class VirtualTaylorFrame:
                                 self.clear_grid()
                             else:
                                 self.delete_value()
-                        elif event.unicode in string.printable:
+                        elif event.unicode in string.printable and not self.ctrl_pressed and not self.alt_pressed:
                             self.input_value(event.unicode)
                     elif event.type == pygame.KEYUP:
                         if event.key in [pygame.K_LCTRL, pygame.K_RCTRL]:

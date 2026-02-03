@@ -9,6 +9,7 @@ Virtual Taylor Frame is a Python-based interactive grid application designed to 
 - Text-to-speech feedback
 - Sound effects for different actions
 - Auto-shift, smart delete, and fast move options
+- Save/load and text export (manual)
 - Compatibility with screen readers (using cytolk)
 
 ## Requirements
@@ -37,6 +38,8 @@ Run the program by executing the following command in the terminal:
 ```
 python virtual_taylor_frame.py
 ```
+
+When saving or loading, the app prompts for a filename. Saving writes both a `.vtf` (JSON) file and a `.txt` export with the same base name.
 
 ### nvgt. 
 make sure you have nvgt installed, then type. 
@@ -67,6 +70,9 @@ nvgt virtual_taylor_frame.nvgt
 - F3: Toggle smart delete
 - F4: Toggle fast move
 - F5: Resize grid
+- Ctrl + S: Save (writes .vtf and .txt)
+- Ctrl + O: Load (.vtf)
+- Ctrl + E: Export text (.txt)
 
 
 ### Special Characters
