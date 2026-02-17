@@ -108,21 +108,21 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Good! Now try: 4 + 5",
             "9",
-            "Count up: 4, then add 1, 2, 3, 4, 5 more numbers.",
+            "Count up: Start from 4, then count 5 more numbers.",
             "4 + 5 = 9. Great job!"
         ))
         
         tutorial.add_challenge(Challenge(
             "You're doing great! What is 7 + 2?",
             "9",
-            "Start from 7 and count up 2 more: 8, 9.",
+            "Start from 7 and count up 2 more numbers.",
             "7 + 2 = 9. Excellent work!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Final question: 6 + 6",
             "12",
-            "This is a double! 6 + 6 is the same as 6 times 2.",
+            "This is a double! Think about what 6 + 6 means.",
             "6 + 6 = 12. Perfect! You completed single digit addition!"
         ))
         
@@ -146,7 +146,7 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Good work! Now try: 9 - 4",
             "5",
-            "Count down from 9: subtract 1, 2, 3, 4.",
+            "Count down from 9 by taking away 4.",
             "9 - 4 = 5. Excellent!"
         ))
         
@@ -160,7 +160,7 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Last one: 10 - 6",
             "4",
-            "Start at 10 and count backward 6 times.",
+            "Start at 10 and count backward, taking away 6.",
             "10 - 6 = 4. You've mastered single digit subtraction!"
         ))
         
@@ -177,28 +177,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Multiplication is repeated addition. What is 2 x 3?",
             "6",
-            "2 x 3 means 2 + 2 + 2. Add 2, three times.",
+            "2 times 3 means adding 2, three times. Try it!",
             "2 x 3 = 6. That's 2 added 3 times!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Great! Now try: 3 x 4",
             "12",
-            "3 x 4 means 3 + 3 + 3 + 3.",
+            "3 times 4 means adding 3, four times.",
             "3 x 4 = 12. Excellent!"
         ))
         
         tutorial.add_challenge(Challenge(
             "What is 2 x 5?",
             "10",
-            "Add 2 five times: 2 + 2 + 2 + 2 + 2.",
+            "Add 2 to itself five times.",
             "2 x 5 = 10. Perfect!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Final challenge: 4 x 3",
             "12",
-            "4 x 3 means 4 + 4 + 4.",
+            "4 times 3 means adding 4, three times.",
             "4 x 3 = 12. You've learned the basics of multiplication!"
         ))
         
@@ -215,28 +215,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Let's add bigger numbers! What is 12 + 15?",
             "27",
-            "Add the ones: 2 + 5 = 7. Add the tens: 10 + 10 = 20. Total: 27.",
+            "Add the ones first, then the tens.",
             "12 + 15 = 27. Great work with two-digit numbers!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Now try: 23 + 34",
             "57",
-            "Ones: 3 + 4 = 7. Tens: 20 + 30 = 50. Total: 57.",
+            "Remember to add ones place first, then tens place.",
             "23 + 34 = 57. Excellent!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Here's a tricky one: 28 + 17",
             "45",
-            "Ones: 8 + 7 = 15 (carry the 1). Tens: 20 + 10 + 10 = 40. Total: 45.",
+            "When ones add up to more than 10, carry to the tens place.",
             "28 + 17 = 45. You handled carrying correctly!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Final challenge: 46 + 39",
             "85",
-            "Ones: 6 + 9 = 15 (carry 1). Tens: 40 + 30 + 10 = 80. Total: 85.",
+            "Add ones place: if it's more than 10, remember to carry!",
             "46 + 39 = 85. You've mastered two-digit addition!"
         ))
         
@@ -253,28 +253,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Let's subtract larger numbers. What is 45 - 23?",
             "22",
-            "Ones: 5 - 3 = 2. Tens: 40 - 20 = 20. Total: 22.",
+            "Subtract the ones first, then the tens.",
             "45 - 23 = 22. Great start!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Try this: 67 - 34",
             "33",
-            "Ones: 7 - 4 = 3. Tens: 60 - 30 = 30. Total: 33.",
+            "Remember: ones place first, then tens place.",
             "67 - 34 = 33. Well done!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Here's a challenge with borrowing: 52 - 28",
             "24",
-            "Ones: 12 - 8 = 4 (borrowed 1). Tens: 40 - 20 = 20. Total: 24.",
+            "When ones digit is smaller, you need to borrow from tens.",
             "52 - 28 = 24. You handled borrowing perfectly!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Last one: 81 - 47",
             "34",
-            "Ones: 11 - 7 = 4 (borrowed). Tens: 70 - 40 = 30. Total: 34.",
+            "Check if you need to borrow before subtracting.",
             "81 - 47 = 34. You've mastered two-digit subtraction!"
         ))
         
@@ -291,28 +291,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Let's practice the 5 times table. What is 5 x 6?",
             "30",
-            "5 x 6 = 5 + 5 + 5 + 5 + 5 + 5. Count by 5s: 5, 10, 15, 20, 25, 30.",
+            "Count by 5s six times, or add 5 to itself 6 times.",
             "5 x 6 = 30. Excellent!"
         ))
         
         tutorial.add_challenge(Challenge(
             "What is 7 x 4?",
             "28",
-            "7 x 4 = 7 + 7 + 7 + 7. Or think of it as 4 x 7 = 28.",
+            "7 times 4 means adding 7 four times.",
             "7 x 4 = 28. Great work!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Try this: 8 x 6",
             "48",
-            "8 x 6 = 8 + 8 + 8 + 8 + 8 + 8. Or 6 x 8 = 48.",
+            "8 times 6 means adding 8 six times.",
             "8 x 6 = 48. Perfect!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Final challenge: 9 x 7",
             "63",
-            "9 x 7. Tip: 9 x 7 = (10 x 7) - 7 = 70 - 7 = 63.",
+            "Tip: Think of (10 x 7) minus 7.",
             "9 x 7 = 63. You've mastered multiplication tables!"
         ))
         
@@ -329,28 +329,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Let's combine operations! What is 5 + 3 x 2?",
             "11",
-            "Remember: Multiply first! 3 x 2 = 6, then 5 + 6 = 11.",
+            "Remember: Do multiplication before addition!",
             "5 + 3 x 2 = 11. Multiplication comes before addition!"
         ))
         
         tutorial.add_challenge(Challenge(
             "What is 10 - 4 + 6?",
             "12",
-            "Work left to right: 10 - 4 = 6, then 6 + 6 = 12.",
+            "When operations are the same level, work left to right.",
             "10 - 4 + 6 = 12. Great job with left-to-right operations!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Try this: 15 - 2 x 3",
             "9",
-            "Multiply first: 2 x 3 = 6. Then 15 - 6 = 9.",
+            "Which operation should you do first?",
             "15 - 2 x 3 = 9. You remembered to multiply first!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Final challenge: 4 x 5 - 8",
             "12",
-            "Multiply first: 4 x 5 = 20. Then 20 - 8 = 12.",
+            "Think about order of operations.",
             "4 x 5 - 8 = 12. You've mastered mixed operations!"
         ))
         
@@ -367,28 +367,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Let's learn PEMDAS! What is (3 + 2) x 4?",
             "20",
-            "Parentheses first: 3 + 2 = 5. Then 5 x 4 = 20.",
+            "Do what's inside parentheses first.",
             "(3 + 2) x 4 = 20. Parentheses come first!"
         ))
         
         tutorial.add_challenge(Challenge(
             "What is 2 x (8 - 3)?",
             "10",
-            "Parentheses first: 8 - 3 = 5. Then 2 x 5 = 10.",
+            "Remember: Solve inside parentheses before multiplying.",
             "2 x (8 - 3) = 10. Perfect!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Try this: 20 - (4 + 6)",
             "10",
-            "Parentheses first: 4 + 6 = 10. Then 20 - 10 = 10.",
+            "What should you calculate first?",
             "20 - (4 + 6) = 10. Excellent work!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Challenge: 3 x 4 + (10 - 2)",
             "20",
-            "Parentheses first: 10 - 2 = 8. Then multiply: 3 x 4 = 12. Finally: 12 + 8 = 20.",
+            "Use PEMDAS: Parentheses first, then multiplication, then addition.",
             "3 x 4 + (10 - 2) = 20. You've mastered order of operations!"
         ))
         
@@ -405,28 +405,28 @@ class TutorialLibrary:
         tutorial.add_challenge(Challenge(
             "Division is splitting into equal parts. What is 10 / 2?",
             "5",
-            "10 divided by 2 means: split 10 into 2 equal groups. Each group has 5.",
+            "10 divided by 2 means: split 10 into 2 equal groups.",
             "10 / 2 = 5. Division is splitting equally!"
         ))
         
         tutorial.add_challenge(Challenge(
             "What is 15 / 3?",
             "5",
-            "15 divided by 3: how many 3s fit into 15? Count: 3, 6, 9, 12, 15. That's 5 threes!",
+            "How many groups of 3 fit into 15?",
             "15 / 3 = 5. Perfect!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Try this: 24 / 4",
             "6",
-            "24 divided by 4. Think: 4 x ? = 24. The answer is 6!",
+            "Think: 4 times what number equals 24?",
             "24 / 4 = 6. Great work!"
         ))
         
         tutorial.add_challenge(Challenge(
             "Final challenge: 36 / 6",
             "6",
-            "36 divided by 6. Count by 6s: 6, 12, 18, 24, 30, 36. That's 6 sixes!",
+            "How many 6s make 36?",
             "36 / 6 = 6. You've learned division basics!"
         ))
         

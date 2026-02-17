@@ -742,32 +742,45 @@ class VirtualTaylorFrame:
         if not challenge:
             return
             
-        # Get the user's answer from the first row
-        y = 0
-        user_answer = "".join(self.grid[y]).strip()
+        # Scan the entire grid for the answer
+        # Students may work through problems step-by-step across multiple rows
+        found_answer = None
+        for y in range(self.rows):
+            row_content = "".join(self.grid[y]).strip()
+            if row_content and challenge.check_answer(row_content):
+                found_answer = row_content
+                break
         
-        if not user_answer:
-            self.speak("Please enter your answer and press Ctrl+Enter to check.")
+        if not found_answer:
+            # Check if there's any content at all
+            has_content = False
+            for y in range(self.rows):
+                if "".join(self.grid[y]).strip():
+                    has_content = True
+                    break
+            
+            if not has_content:
+                self.speak("Please enter your answer and press Ctrl+Enter to check.")
+            else:
+                self.play_sound(self.empty_sound)
+                if challenge.needs_hint():
+                    self.speak("Not quite. Here's a hint: " + challenge.get_hint())
+                else:
+                    self.speak("Not quite. Try again!")
             return
             
-        if challenge.check_answer(user_answer):
-            self.play_sound(self.content_sound)
-            self.speak("Correct! " + (challenge.explanation if challenge.explanation else "Well done!"))
-            pygame.time.wait(2000)
-            
-            self.current_tutorial.next_challenge()
-            self.awaiting_tutorial_answer = False
-            
-            if not self.current_tutorial.is_complete():
-                self.present_next_challenge()
-            else:
-                self.finish_tutorial()
+        # Answer found and is correct
+        self.play_sound(self.content_sound)
+        self.speak("Correct! " + (challenge.explanation if challenge.explanation else "Well done!"))
+        pygame.time.wait(2000)
+        
+        self.current_tutorial.next_challenge()
+        self.awaiting_tutorial_answer = False
+        
+        if not self.current_tutorial.is_complete():
+            self.present_next_challenge()
         else:
-            self.play_sound(self.empty_sound)
-            if challenge.needs_hint():
-                self.speak("Not quite. Here's a hint: " + challenge.get_hint())
-            else:
-                self.speak("Not quite. Try again!")
+            self.finish_tutorial()
                 
     def offer_hint(self):
         """Offer a hint for the current challenge"""
