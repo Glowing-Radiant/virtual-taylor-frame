@@ -10,6 +10,7 @@ import traceback
 import string
 import math
 import json
+from tutorial_system import TutorialLibrary, Tutorial, Challenge
 
 
 class VirtualTaylorFrame:
@@ -35,6 +36,10 @@ class VirtualTaylorFrame:
         self.smart_delete = False
         self.fast_move = False
         self.last_move_time = 0
+        self.tutorial_mode = False
+        self.current_tutorial = None
+        self.tutorial_library = TutorialLibrary()
+        self.awaiting_tutorial_answer = False
 
 
     def resource_path(self, relative_path):
@@ -299,13 +304,14 @@ class VirtualTaylorFrame:
         F3: Toggle smart delete.
         F4: Toggle fast move.
         F5: Resize grid.
+        F6: Get hint (Tutorial Mode only).
         Ctrl + S: Save (writes .vtf and .txt).
         Ctrl + O: Load (.vtf).
         Ctrl + E: Export text (.txt).
         Arrow keys: Move cursor.
         Alt + Arrows (Up/Down): Read previous/next content line.
         Alt + L: Read current line.
-        Ctrl + Enter: Evaluate math expression.
+        Ctrl + Enter: Evaluate math expression or check tutorial answer.
         Enter: Move to next stack (same as Shift + Down).
         Ctrl + Arrow keys: Snap to content.
         Shift + Down: Move to next stack.
@@ -560,6 +566,238 @@ class VirtualTaylorFrame:
                 
             pygame.display.flip()
 
+    def show_main_menu(self):
+        """Show main menu to choose between Normal and Tutorial mode"""
+        active = True
+        options = ["Normal Mode", "Tutorial Mode", "Exit"]
+        selected_index = 0
+        
+        self.speak(f"Welcome to Virtual Taylor Frame. Select mode: {options[selected_index]}")
+        
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                        selected_index = (selected_index + (1 if event.key == pygame.K_DOWN else -1)) % len(options)
+                        self.play_sound(self.move_sound)
+                        self.speak(options[selected_index])
+                    elif event.key == pygame.K_RETURN:
+                        if selected_index == 0:  # Normal Mode
+                            self.speak("Starting Normal Mode")
+                            self.tutorial_mode = False
+                            return True
+                        elif selected_index == 1:  # Tutorial Mode
+                            self.speak("Entering Tutorial Mode")
+                            self.tutorial_mode = True
+                            return self.show_tutorial_menu()
+                        else:  # Exit
+                            pygame.quit()
+                            sys.exit()
+                    elif event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+            
+            self.screen.fill((255, 255, 255))
+            title_text = "Virtual Taylor Frame - Main Menu"
+            title_surface = self.font.render(title_text, True, (0, 0, 0))
+            self.screen.blit(title_surface, (20, 40))
+            
+            for i, option in enumerate(options):
+                color = (255, 0, 0) if i == selected_index else (0, 0, 0)
+                opt_surface = self.font.render(option, True, color)
+                self.screen.blit(opt_surface, (20, 100 + i * 40))
+                
+            pygame.display.flip()
+            
+    def show_tutorial_menu(self):
+        """Show tutorial selection menu"""
+        active = True
+        tutorials = self.tutorial_library.get_all_tutorials()
+        
+        # Group by difficulty
+        easy = [i for i, t in enumerate(tutorials) if t.difficulty == "easy"]
+        medium = [i for i, t in enumerate(tutorials) if t.difficulty == "medium"]
+        hard = [i for i, t in enumerate(tutorials) if t.difficulty == "hard"]
+        
+        options = ["Easy Tutorials", "Medium Tutorials", "Hard Tutorials", "Back to Main Menu"]
+        selected_index = 0
+        
+        self.speak(f"Tutorial Menu. Select difficulty: {options[selected_index]}")
+        
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                        selected_index = (selected_index + (1 if event.key == pygame.K_DOWN else -1)) % len(options)
+                        self.play_sound(self.move_sound)
+                        self.speak(options[selected_index])
+                    elif event.key == pygame.K_RETURN:
+                        if selected_index == 0:  # Easy
+                            return self.show_tutorial_list(easy, "Easy")
+                        elif selected_index == 1:  # Medium
+                            return self.show_tutorial_list(medium, "Medium")
+                        elif selected_index == 2:  # Hard
+                            return self.show_tutorial_list(hard, "Hard")
+                        else:  # Back
+                            return False
+                    elif event.key == pygame.K_ESCAPE:
+                        return False
+            
+            self.screen.fill((255, 255, 255))
+            title_text = "Tutorial Mode - Select Difficulty"
+            title_surface = self.font.render(title_text, True, (0, 0, 0))
+            self.screen.blit(title_surface, (20, 40))
+            
+            for i, option in enumerate(options):
+                color = (255, 0, 0) if i == selected_index else (0, 0, 0)
+                opt_surface = self.font.render(option, True, color)
+                self.screen.blit(opt_surface, (20, 100 + i * 40))
+                
+            pygame.display.flip()
+            
+    def show_tutorial_list(self, tutorial_indices, difficulty_name):
+        """Show list of tutorials for a difficulty level"""
+        active = True
+        tutorials = self.tutorial_library.get_all_tutorials()
+        tutorial_list = [tutorials[i] for i in tutorial_indices]
+        
+        options = [f"{i+1}. {t.title}" for i, t in enumerate(tutorial_list)]
+        options.append("Back")
+        selected_index = 0
+        
+        self.speak(f"{difficulty_name} Tutorials. {options[selected_index]}")
+        
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                        selected_index = (selected_index + (1 if event.key == pygame.K_DOWN else -1)) % len(options)
+                        self.play_sound(self.move_sound)
+                        if selected_index < len(tutorial_list):
+                            self.speak(f"{options[selected_index]}. {tutorial_list[selected_index].description}")
+                        else:
+                            self.speak(options[selected_index])
+                    elif event.key == pygame.K_RETURN:
+                        if selected_index < len(tutorial_list):
+                            self.current_tutorial = tutorial_list[selected_index]
+                            self.start_tutorial()
+                            return True
+                        else:  # Back
+                            return False
+                    elif event.key == pygame.K_ESCAPE:
+                        return False
+            
+            self.screen.fill((255, 255, 255))
+            title_text = f"{difficulty_name} Tutorials"
+            title_surface = self.font.render(title_text, True, (0, 0, 0))
+            self.screen.blit(title_surface, (20, 40))
+            
+            y_pos = 100
+            for i, option in enumerate(options):
+                color = (255, 0, 0) if i == selected_index else (0, 0, 0)
+                opt_surface = self.font.render(option, True, color)
+                self.screen.blit(opt_surface, (20, y_pos))
+                y_pos += 35
+                
+            pygame.display.flip()
+            
+    def start_tutorial(self):
+        """Start the selected tutorial"""
+        self.clear_grid()
+        self.current_pos = Vector2(0, 0)
+        self.awaiting_tutorial_answer = False
+        
+        self.speak(f"Starting tutorial: {self.current_tutorial.title}. {self.current_tutorial.description}")
+        pygame.time.wait(1000)
+        self.present_next_challenge()
+        
+    def present_next_challenge(self):
+        """Present the next challenge in the tutorial"""
+        challenge = self.current_tutorial.get_current_challenge()
+        if challenge:
+            self.clear_grid()
+            self.current_pos = Vector2(0, 0)
+            
+            current, total = self.current_tutorial.get_progress()
+            self.speak(f"Challenge {current + 1} of {total}. {challenge.question}")
+            self.awaiting_tutorial_answer = True
+        else:
+            self.finish_tutorial()
+            
+    def check_tutorial_answer(self):
+        """Check the user's answer for the current challenge"""
+        if not self.awaiting_tutorial_answer:
+            return
+            
+        challenge = self.current_tutorial.get_current_challenge()
+        if not challenge:
+            return
+            
+        # Get the user's answer from the first row
+        y = 0
+        user_answer = "".join(self.grid[y]).strip()
+        
+        if not user_answer:
+            self.speak("Please enter your answer and press Ctrl+Enter to check.")
+            return
+            
+        if challenge.check_answer(user_answer):
+            self.play_sound(self.content_sound)
+            self.speak("Correct! " + (challenge.explanation if challenge.explanation else "Well done!"))
+            pygame.time.wait(2000)
+            
+            self.current_tutorial.next_challenge()
+            self.awaiting_tutorial_answer = False
+            
+            if not self.current_tutorial.is_complete():
+                self.present_next_challenge()
+            else:
+                self.finish_tutorial()
+        else:
+            self.play_sound(self.empty_sound)
+            if challenge.needs_hint():
+                self.speak("Not quite. Here's a hint: " + challenge.get_hint())
+            else:
+                self.speak("Not quite. Try again!")
+                
+    def offer_hint(self):
+        """Offer a hint for the current challenge"""
+        if not self.awaiting_tutorial_answer:
+            return
+            
+        challenge = self.current_tutorial.get_current_challenge()
+        if challenge:
+            hint = challenge.get_hint()
+            self.speak("Hint: " + hint)
+            
+    def finish_tutorial(self):
+        """Finish the current tutorial"""
+        self.speak(f"Congratulations! You've completed {self.current_tutorial.title}. Press any key to return to the tutorial menu.")
+        self.tutorial_mode = False
+        self.awaiting_tutorial_answer = False
+        
+        # Wait for key press
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    waiting = False
+                    break
+                    
+        self.show_main_menu()
+
     def draw(self):
 
         self.screen.fill((255, 255, 255))
@@ -597,12 +835,18 @@ class VirtualTaylorFrame:
                             self.toggle_fast_move()
                         elif event.key == pygame.K_F5:
                             self.prompt_grid_resize()
+                        elif event.key == pygame.K_F6:
+                            if self.tutorial_mode:
+                                self.offer_hint()
                         elif event.key == pygame.K_l:
                             if self.alt_pressed:
                                 self.speak_row(int(self.current_pos.y))
                         elif event.key == pygame.K_RETURN:
                              if self.ctrl_pressed:
-                                 self.evaluate_row()
+                                 if self.tutorial_mode and self.awaiting_tutorial_answer:
+                                     self.check_tutorial_answer()
+                                 else:
+                                     self.evaluate_row()
                              else:
                                  self.move_down_to_next_stack()
                         elif event.key == pygame.K_UP:
@@ -711,4 +955,5 @@ class VirtualTaylorFrame:
 
 if __name__ == "__main__":
     frame = VirtualTaylorFrame(18, 25)
+    frame.show_main_menu()
     frame.run()
