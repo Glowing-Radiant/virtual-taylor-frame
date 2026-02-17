@@ -5,3 +5,6 @@ equation.vtf
 test.txt
 test.vtf
 virtual taylor frame.spec
+__pycache__/
+*.pyc
+*.pyo
