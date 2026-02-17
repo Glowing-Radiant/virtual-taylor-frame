@@ -277,6 +277,32 @@ While this implementation is complete and functional, potential future additions
    - Port tutorial system to NVGT version
    - Platform-specific optimizations
 
+## Recent Improvements (2026-02-17)
+
+### Multi-Row Answer Detection
+The answer checking system was enhanced to support step-by-step calculations:
+- **Before**: Only checked the first row for answers
+- **After**: Scans the entire grid to find answers anywhere
+- **Benefit**: Students can now show their work across multiple rows, supporting the foundational step-by-step approach
+
+### Improved Hint System
+All 36 tutorial hints were revised to be more pedagogical:
+- **Before**: Hints revealed complete solutions and intermediate steps
+- **After**: Hints provide strategic guidance without revealing answers
+- **Examples**:
+  - Old: "Count up: 4, then add 1, 2, 3, 4, 5 more numbers."
+  - New: "Count up: Start from 4, then count 5 more numbers."
+  - Old: "Ones: 6 + 9 = 15 (carry 1). Tens: 40 + 30 + 10 = 80. Total: 85."
+  - New: "Add ones place: if it's more than 10, remember to carry!"
+
+### Testing
+Added comprehensive test suite for multi-row answer detection:
+- Validates answer detection in first row
+- Validates answer detection in middle rows (after work)
+- Validates answer detection in last row
+- Validates multi-digit answers with column work
+- Validates rejection of incorrect answers
+
 ## Conclusion
 
 This implementation successfully addresses the problem statement by:

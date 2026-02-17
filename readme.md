@@ -78,10 +78,13 @@ On startup, you will be presented with a main menu to choose between:
 2. Choose a difficulty level (Easy, Medium, or Hard)
 3. Select a specific tutorial from the list
 4. Follow the audio instructions for each challenge
-5. Type your answer in the grid
-6. Press **Ctrl+Enter** to check your answer
-7. Press **F6** if you need a hint (after 2 attempts)
-8. Complete all challenges to finish the tutorial
+5. **Work through the problem step-by-step** on the grid
+6. Type your answer anywhere on the grid (the system scans all rows)
+7. Press **Ctrl+Enter** to check your answer
+8. Press **F6** if you need a hint (provides guidance without revealing the answer)
+9. Complete all challenges to finish the tutorial
+
+**Note**: The grid supports multi-row calculations. You can show your work across multiple rows, and the system will find your answer wherever you place it.
 
 When saving or loading, the app prompts for a filename. Saving writes both a `.vtf` (JSON) file and a `.txt` export with the same base name.
 

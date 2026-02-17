@@ -98,11 +98,27 @@ The Virtual Taylor Frame now includes an Interactive Tutorial Mode designed to t
 ### During a Tutorial
 
 1. **Listen to the Question**: Each challenge is read aloud with clear instructions
-2. **Enter Your Answer**: Type your answer in the first row of the grid
-3. **Check Your Answer**: Press **Ctrl+Enter** to submit and check your answer
-4. **Get Hints**: Press **F6** if you need help (available after 2 attempts)
-5. **Try Again**: If incorrect, listen to the feedback and try again
-6. **Move Forward**: Complete all challenges to finish the tutorial
+2. **Work Through the Problem**: Use the grid for step-by-step calculations - work can span multiple rows
+3. **Enter Your Answer**: Place your final answer anywhere on the grid
+4. **Check Your Answer**: Press **Ctrl+Enter** to submit - the system will scan the entire grid for your answer
+5. **Get Hints**: Press **F6** if you need help (available after 2 attempts)
+6. **Try Again**: If incorrect, listen to the feedback and try again
+7. **Move Forward**: Complete all challenges to finish the tutorial
+
+### Working on the Grid
+
+The Virtual Taylor Frame is designed for **step-by-step calculation**:
+- You can use multiple rows to show your work
+- Write intermediate calculations on different rows
+- Place your final answer on any row
+- The system will find your answer wherever it is on the grid
+- Example for "28 + 17":
+  ```
+  Row 0:   28
+  Row 1: + 17
+  Row 2: ----
+  Row 3:   45  ← Answer found here
+  ```
 
 ### Tutorial Controls
 
@@ -141,11 +157,12 @@ The tutorial provides three types of feedback:
 - Hints are **context-specific** to each challenge
 - Available after **2 unsuccessful attempts**
 - Can be manually requested with **F6**
-- Provide step-by-step guidance
+- Provide **guidance without revealing the answer**
+- Designed to help you think through the problem
 - Examples:
-  - "Count up: 4, then add 1, 2, 3, 4, 5 more numbers"
-  - "Parentheses first: 3 + 2 = 5. Then 5 × 4 = 20"
-  - "Ones: 6 + 9 = 15 (carry 1). Tens: 40 + 30 + 10 = 80"
+  - "Think: If you have 2 apples and get 3 more, how many do you have?"
+  - "Do what's inside parentheses first."
+  - "When ones add up to more than 10, carry to the tens place."
 
 ## Tips for Students
 
