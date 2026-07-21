@@ -44,6 +44,7 @@ class VirtualTaylorFrame:
         self.tutorial_library = TutorialLibrary()
         self.progress_store = ProgressStore()
         self.awaiting_tutorial_answer = False
+        self.pending_navigation = None
 
 
     def resource_path(self, relative_path):
@@ -324,7 +325,9 @@ class VirtualTaylorFrame:
         Ctrl + PageUp/PageDown: Move to top/bottom of column.
         Backspace: Delete content.
         Ctrl + Backspace: Clear entire grid.
-        Escape: Exit program (with confirmation).
+        Escape: Return to the tutorial menu (in a tutorial) or the main menu
+        (in Normal Mode), with confirmation.
+        Alt + F4 / closing the window: Quit immediately.
         Whether auto-shift and smart delete start on by default can be set
         in the Settings panel from the main menu.
         """
@@ -532,13 +535,20 @@ class VirtualTaylorFrame:
         if input_str == "":
             self.speak("Returning to main window.")
 
-    def confirm_exit(self):
+    def confirm_dialog(self, prompt_text, cancel_message="Returning to program"):
+        """Generic Yes/No confirmation modal. Returns True for Yes, False for No/Escape.
+
+        Alt+F4 and the window close button always quit immediately without
+        going through this dialog - it's only used for in-app navigation
+        choices (returning to a menu, quitting a tutorial, etc).
+        """
         active = True
         options = ["Yes", "No"]
         selected_index = 0
-        
-        self.speak(f"Do you want to exit? {options[selected_index]}")
-        
+        result = False
+
+        self.speak(f"{prompt_text} {options[selected_index]}")
+
         while active:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -550,33 +560,38 @@ class VirtualTaylorFrame:
                         self.play_sound(self.move_sound)
                         self.speak(options[selected_index])
                     elif event.key == pygame.K_RETURN:
-                        if selected_index == 0: # Yes
-                            pygame.quit()
-                            sys.exit()
-                        else: # No
-                            self.speak("Returning to program")
-                            active = False
-                    elif event.key == pygame.K_ESCAPE:
-                        self.speak("Returning to program")
+                        result = selected_index == 0
+                        if not result:
+                            self.speak(cancel_message)
                         active = False
-            
+                    elif event.key == pygame.K_ESCAPE:
+                        self.speak(cancel_message)
+                        result = False
+                        active = False
+
             self.screen.fill((255, 255, 255))
-            prompt_text = "Do you want to exit?"
             text_surface = self.font.render(prompt_text, True, (0, 0, 0))
             self.screen.blit(text_surface, (20, (self.rows * self.cell_size) // 2 - 40))
-            
+
             for i, option in enumerate(options):
                 color = (255, 0, 0) if i == selected_index else (0, 0, 0)
                 opt_surface = self.font.render(option, True, color)
                 self.screen.blit(opt_surface, (20, (self.rows * self.cell_size) // 2 + i * 40))
-                
+
             pygame.display.flip()
 
+        return result
+
     def show_main_menu(self):
-        """Show main menu to choose between Normal and Tutorial mode"""
+        """Show main menu. Returns "normal" or "tutorial_menu" once the user
+        picks somewhere to go; loops internally for Settings, and only exits
+        the process for an explicit, confirmed Exit."""
         active = True
         options = ["Normal Mode", "Tutorial Mode", "Settings", "Exit"]
         selected_index = 0
+        self.tutorial_mode = False
+        self.current_tutorial = None
+        self.awaiting_tutorial_answer = False
 
         self.speak(f"Welcome to Virtual Taylor Frame. Select mode: {options[selected_index]}")
 
@@ -594,20 +609,22 @@ class VirtualTaylorFrame:
                         if selected_index == 0:  # Normal Mode
                             self.speak("Starting Normal Mode")
                             self.tutorial_mode = False
-                            return True
+                            return "normal"
                         elif selected_index == 1:  # Tutorial Mode
                             self.speak("Entering Tutorial Mode")
-                            self.tutorial_mode = True
-                            return self.show_tutorial_menu()
+                            return "tutorial_menu"
                         elif selected_index == 2:  # Settings
                             self.show_settings_menu()
                             self.speak(f"Select mode: {options[selected_index]}")
                         else:  # Exit
+                            if self.confirm_dialog("Quit Virtual Taylor Frame?"):
+                                pygame.quit()
+                                sys.exit()
+                    elif event.key == pygame.K_ESCAPE:
+                        if self.confirm_dialog("Quit Virtual Taylor Frame?"):
                             pygame.quit()
                             sys.exit()
-                    elif event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
+                        self.speak(f"Select mode: {options[selected_index]}")
             
             self.screen.fill((255, 255, 255))
             title_text = "Virtual Taylor Frame - Main Menu"
@@ -800,7 +817,9 @@ class VirtualTaylorFrame:
             pygame.display.flip()
             
     def start_tutorial(self):
-        """Start the selected tutorial"""
+        """Start the selected tutorial. Reuses the same grid/frame as Normal
+        Mode - only its contents are cleared, not its dimensions."""
+        self.tutorial_mode = True
         self.clear_grid()
         self.current_pos = Vector2(0, 0)
         self.awaiting_tutorial_answer = False
@@ -886,7 +905,17 @@ class VirtualTaylorFrame:
             self.speak("Hint: " + hint)
             
     def finish_tutorial(self):
-        """Finish the current tutorial: score it, save progress, announce unlocks"""
+        """Finish the current tutorial: score it, save progress, announce unlocks.
+
+        This only settles tutorial/progress state and waits for an
+        acknowledgement keypress; it does not open any menus itself. It signals
+        run() (via self.pending_navigation) to hand control back to the
+        tutorial menu once the current event loop iteration ends. Nesting a
+        fresh blocking menu loop directly on top of run()'s own loop used to
+        make the call stack grow by one frame per tutorial played in a
+        session, and made it easy for menu selections made down in that
+        nested stack (like "Normal Mode") to never actually reach the top.
+        """
         order = self.tutorial_library.get_progression_order()
         tutorial_id = self.current_tutorial.id
         idx = order.index(tutorial_id) if tutorial_id in order else -1
@@ -908,8 +937,6 @@ class VirtualTaylorFrame:
             pygame.time.wait(1000)
 
         self.speak("Press any key to return to the tutorial menu.")
-        self.tutorial_mode = False
-        self.awaiting_tutorial_answer = False
 
         # Wait for key press
         waiting = True
@@ -922,11 +949,27 @@ class VirtualTaylorFrame:
                     waiting = False
                     break
 
-        if not self.show_tutorial_menu():
-            # "Back to Main Menu" (or Escape) was chosen with no new tutorial
-            # started, so the main menu needs to be shown explicitly here -
-            # otherwise control just falls back into the grid-editing loop.
-            self.show_main_menu()
+        self.tutorial_mode = False
+        self.current_tutorial = None
+        self.awaiting_tutorial_answer = False
+        self.pending_navigation = "tutorial_menu"
+
+    def quit_tutorial(self):
+        """Abandon the current tutorial in progress and head back to the
+        tutorial menu. Triggered by Escape while a tutorial is active."""
+        if not self.confirm_dialog("Quit this tutorial and return to the tutorial menu?"):
+            return
+        self.tutorial_mode = False
+        self.current_tutorial = None
+        self.awaiting_tutorial_answer = False
+        self.clear_grid()
+        self.pending_navigation = "tutorial_menu"
+
+    def request_return_to_main_menu(self):
+        """Escape while in Normal Mode: confirm, then head back to the main menu."""
+        if not self.confirm_dialog("Return to the main menu?"):
+            return
+        self.pending_navigation = "main_menu"
 
     def draw(self):
 
@@ -945,15 +988,39 @@ class VirtualTaylorFrame:
         pygame.display.flip()
 
     def run(self):
+        """Grid-editing loop shared by Normal Mode and Tutorial Mode - both
+        read/write the same self.grid, so Tutorial Mode always inherits
+        whatever frame (rows/cols/grid) is currently active.
+
+        Returns "main_menu" or "tutorial_menu" once self.pending_navigation
+        is set by an Escape confirmation or by finish_tutorial(), so the
+        caller knows which menu to show next. The window close button and
+        Alt+F4 (both surfaced by pygame as a QUIT event) always quit the
+        process immediately, with no confirmation.
+        """
+        self.pending_navigation = None
+        # Menus in between run() sessions don't track modifier keys (they
+        # only care about arrows/Enter/Escape), so a Ctrl/Alt/Shift held
+        # down when we last left the grid - e.g. the Ctrl in Ctrl+Enter to
+        # finish a tutorial challenge - would otherwise still read as held
+        # here, silently turning plain arrow/typing input into their
+        # Ctrl/Alt/Shift variants.
+        self.ctrl_pressed = False
+        self.alt_pressed = False
+        self.shift_pressed = False
         running = True
         while running:
             try:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        self.confirm_exit()
+                        pygame.quit()
+                        sys.exit()
                     elif event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
-                            self.confirm_exit()
+                            if self.tutorial_mode:
+                                self.quit_tutorial()
+                            else:
+                                self.request_return_to_main_menu()
 
                         if event.key == pygame.K_F1:
                             self.show_help()
@@ -1053,6 +1120,16 @@ class VirtualTaylorFrame:
                         elif event.key in [pygame.K_LSHIFT, pygame.K_RSHIFT]:
                             self.shift_pressed = False
 
+                    if self.pending_navigation:
+                        # A menu switch was requested (Escape confirmed, or a
+                        # tutorial just finished) - stop draining events
+                        # against state that's about to be torn down.
+                        break
+
+                if self.pending_navigation:
+                    running = False
+                    continue
+
                 if self.fast_move:
                     current_time = pygame.time.get_ticks()
                     if current_time - self.last_move_time > 100: # 100ms delay
@@ -1070,20 +1147,46 @@ class VirtualTaylorFrame:
                         if keys[pygame.K_RIGHT]:
                             self.move(Vector2(1, 0))
                             moved = True
-                        
+
                         if moved:
                             self.last_move_time = current_time
 
 
                 self.draw()
             except Exception as e:
+                # A broken tutorial (or any other runtime error) used to take
+                # the whole app down with it. Instead: log it, tell the user,
+                # drop any in-progress tutorial state so it can't get stuck,
+                # and hand control back to the main menu rather than crashing.
                 print(f"An error occurred: {e}")
                 print(traceback.format_exc())
+                self.tutorial_mode = False
+                self.current_tutorial = None
+                self.awaiting_tutorial_answer = False
+                try:
+                    self.speak("Something went wrong. Returning to the main menu.")
+                except Exception:
+                    pass
+                self.pending_navigation = "main_menu"
                 running = False
 
-        pygame.quit()
+        return self.pending_navigation or "main_menu"
+
 
 if __name__ == "__main__":
+    # Small state machine instead of a fixed "menu once, then run forever"
+    # sequence, so Escape (return to a menu), finishing/quitting a tutorial,
+    # and recovering from an error can all hand control back to whichever
+    # menu makes sense next, rather than being dead ends.
     frame = VirtualTaylorFrame(18, 25)
-    frame.show_main_menu()
-    frame.run()
+    destination = "main_menu"
+    while True:
+        if destination == "main_menu":
+            choice = frame.show_main_menu()  # "normal" or "tutorial_menu"
+            destination = "run" if choice == "normal" else choice
+        elif destination == "tutorial_menu":
+            destination = "run" if frame.show_tutorial_menu() else "main_menu"
+        elif destination == "run":
+            destination = frame.run()  # "main_menu" or "tutorial_menu"
+        else:
+            destination = "main_menu"
