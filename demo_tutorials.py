@@ -4,22 +4,27 @@ Demo script showing the tutorial system in action (text-only mode)
 This demonstrates the tutorial flow without requiring pygame/cytolk
 """
 
+import random
+
 from tutorial_system import TutorialLibrary
 
 def print_separator(char='=', length=60):
     """Print a separator line"""
     print(char * length)
 
-def demo_tutorial(tutorial):
+def demo_tutorial(tutorial, rng):
     """Demonstrate a tutorial in text mode"""
+    challenges = tutorial.generate_challenges(rng)
+
     print_separator()
     print(f"TUTORIAL: {tutorial.title}")
     print(f"Difficulty: {tutorial.difficulty.upper()}")
     print(f"Description: {tutorial.description}")
+    print("(Challenges below are randomly generated -- they're different every playthrough)")
     print_separator()
-    
-    for i, challenge in enumerate(tutorial.challenges, 1):
-        print(f"\nChallenge {i}/{len(tutorial.challenges)}:")
+
+    for i, challenge in enumerate(challenges, 1):
+        print(f"\nChallenge {i}/{len(challenges)}:")
         print(f"  Question: {challenge.question}")
         print(f"  Expected Answer: {challenge.answer}")
         if challenge.hint:
@@ -38,37 +43,39 @@ def main():
     
     # Create the tutorial library
     library = TutorialLibrary()
-    
+    # Fixed seed so this demo's output is reproducible between runs
+    rng = random.Random(42)
+
     print(f"\n✓ Tutorial system loaded with {len(library.get_all_tutorials())} tutorials")
-    
+
     # Show easy tutorials
     print("\n\n")
     print_separator('#', 70)
     print("EASY TUTORIALS (Primary Level - Ages 6-10)")
     print_separator('#', 70)
-    
+
     for tutorial in library.get_tutorials_by_difficulty("easy"):
-        demo_tutorial(tutorial)
+        demo_tutorial(tutorial, rng)
         print("\n")
-    
+
     # Show medium tutorials
     print("\n")
     print_separator('#', 70)
     print("MEDIUM TUTORIALS (Upper Primary - Ages 10-12)")
     print_separator('#', 70)
-    
+
     for tutorial in library.get_tutorials_by_difficulty("medium"):
-        demo_tutorial(tutorial)
+        demo_tutorial(tutorial, rng)
         print("\n")
-    
+
     # Show hard tutorials
     print("\n")
     print_separator('#', 70)
     print("HARD TUTORIALS (Intermediate - Ages 12-14)")
     print_separator('#', 70)
-    
+
     for tutorial in library.get_tutorials_by_difficulty("hard"):
-        demo_tutorial(tutorial)
+        demo_tutorial(tutorial, rng)
         print("\n")
     
     print_separator('*', 70)

@@ -4,6 +4,8 @@
 
 The Virtual Taylor Frame now includes an Interactive Tutorial Mode designed to teach mathematics to visually impaired students in a progressive, intuitive manner. The tutorials cover basic to intermediate math concepts suitable for primary and intermediate class students (ages 6-14).
 
+Tutorial Mode is a **progressive game system**: tutorials unlock one at a time as you complete the previous one, each challenge is randomly generated so no two playthroughs are identical, and finishing a tutorial earns 1-3 stars based on how many attempts and hints it took. Your progress is saved to disk automatically and reloaded the next time you launch the app.
+
 ## Getting Started
 
 ### Launching Tutorial Mode
@@ -27,49 +29,52 @@ The Virtual Taylor Frame now includes an Interactive Tutorial Mode designed to t
    - **Medium**: For upper primary students (ages 10-12)
    - **Hard**: For intermediate students (ages 12-14)
 
-2. Navigate tutorials using **Up** and **Down** arrows
-3. Press **Enter** to start a tutorial
+2. Navigate tutorials using **Up** and **Down** arrows - each one announces whether it's locked, or your best star rating if you've played it
+3. Press **Enter** to start a tutorial (locked tutorials will tell you which one to finish first instead of starting)
 4. Press **Escape** to go back
 
 ## Tutorial Structure
+
+Each tutorial below generates fresh random numbers every time you play it -
+the specific problems shown are examples of the range/style, not a fixed set.
 
 ### Easy Level (Primary - Ages 6-10)
 
 #### Tutorial 1: Single Digit Addition
 - **Objective**: Learn to add single-digit numbers
-- **Topics**: 2+3, 4+5, 7+2, 6+6
+- **Range**: Two numbers from 1-9 (e.g. 2+3, 7+6)
 - **Skills**: Basic addition, counting up, doubles
 - **Challenges**: 4
 
 #### Tutorial 2: Single Digit Subtraction
 - **Objective**: Learn to subtract single-digit numbers
-- **Topics**: 8-3, 9-4, 7-7, 10-6
+- **Range**: A number from 3-10 minus a smaller number (e.g. 8-3, 9-4), always including one "subtract from itself" example (e.g. 7-7)
 - **Skills**: Basic subtraction, counting down, zero concept
 - **Challenges**: 4
 
 #### Tutorial 3: Multiplication Basics
 - **Objective**: Introduction to multiplication
-- **Topics**: 2×3, 3×4, 2×5, 4×3
-- **Skills**: Repeated addition, times tables (2s and 3s)
+- **Range**: The 2, 3, or 4 times table, multiplied by 2-6 (e.g. 2x3, 4x5)
+- **Skills**: Repeated addition, times tables (2s, 3s, 4s)
 - **Challenges**: 4
 
 ### Medium Level (Upper Primary - Ages 10-12)
 
 #### Tutorial 4: Two Digit Addition
 - **Objective**: Learn to add two-digit numbers
-- **Topics**: 12+15, 23+34, 28+17, 46+39
+- **Range**: Two numbers from 10-89 (e.g. 12+15, 28+17) - the first half of each tutorial has no carrying, the second half always requires it
 - **Skills**: Place value, carrying, regrouping
 - **Challenges**: 4
 
 #### Tutorial 5: Two Digit Subtraction
 - **Objective**: Learn to subtract two-digit numbers
-- **Topics**: 45-23, 67-34, 52-28, 81-47
+- **Range**: Two numbers from 10-89 (e.g. 45-23, 52-28) - the first half of each tutorial has no borrowing, the second half always requires it
 - **Skills**: Place value, borrowing, regrouping
 - **Challenges**: 4
 
 #### Tutorial 6: Multiplication Tables
 - **Objective**: Practice larger multiplication
-- **Topics**: 5×6, 7×4, 8×6, 9×7
+- **Range**: Two numbers from 4-10 (e.g. 5x6, 7x4)
 - **Skills**: Times tables up to 10, mental math tricks
 - **Challenges**: 4
 
@@ -77,19 +82,19 @@ The Virtual Taylor Frame now includes an Interactive Tutorial Mode designed to t
 
 #### Tutorial 7: Mixed Operations
 - **Objective**: Combine different operations
-- **Topics**: 5+3×2, 10-4+6, 15-2×3, 4×5-8
+- **Range**: One of four patterns each playthrough - `a+b×c`, `a-b+c`, `a-b×c`, `a×b-c` (e.g. 5+3x2, 15-2x3)
 - **Skills**: Order of operations basics, left-to-right evaluation
 - **Challenges**: 4
 
 #### Tutorial 8: Order of Operations (PEMDAS)
 - **Objective**: Learn proper operation order
-- **Topics**: (3+2)×4, 2×(8-3), 20-(4+6), 3×4+(10-2)
+- **Range**: One of four parenthesized patterns each playthrough - `(a+b)×c`, `a×(b-c)`, `a-(b+c)`, `a×b+(c-d)` (e.g. (3+2)x4, 20-(4+6))
 - **Skills**: Parentheses first, PEMDAS rule
 - **Challenges**: 4
 
 #### Tutorial 9: Division Basics
 - **Objective**: Introduction to division
-- **Topics**: 10÷2, 15÷3, 24÷4, 36÷6
+- **Range**: A number that always divides evenly by 2-9 (e.g. 10÷2, 36÷6)
 - **Skills**: Equal grouping, division as reverse multiplication
 - **Challenges**: 4
 
@@ -141,6 +146,7 @@ The tutorial provides three types of feedback:
    - Encouraging message
    - Explanation of the solution
    - Automatically moves to next challenge
+   - After the last challenge, you'll hear your star rating (1-3) and, if it unlocked, the next tutorial in the sequence
 
 2. **Incorrect Answer (1st attempt)**:
    - Negative audio cue (empty sound)
@@ -159,6 +165,7 @@ The tutorial provides three types of feedback:
 - Can be manually requested with **F6**
 - Provide **guidance without revealing the answer**
 - Designed to help you think through the problem
+- Using a hint (or taking more than 2 attempts) lowers that challenge's contribution to your star rating for the tutorial - solving cleanly on the first try earns the most stars
 - Examples:
   - "Think: If you have 2 apples and get 3 more, how many do you have?"
   - "Do what's inside parentheses first."
@@ -206,9 +213,10 @@ The tutorial provides three types of feedback:
 
 ### Progress Tracking
 - Each tutorial shows progress (Challenge X of Y)
-- Completion messages celebrate achievement
-- Students can repeat tutorials to improve
-- Encourage moving to harder levels gradually
+- Completion messages celebrate achievement and announce your star rating
+- Progress is **saved automatically** to `~/.virtual_taylor_frame/progress.json` and reloaded next time the app starts
+- Tutorials **unlock in order** - completing one opens the next, so students naturally move through the curriculum
+- Students can replay any unlocked tutorial (with fresh random numbers) to improve their star rating - only the best result is kept
 
 ## Troubleshooting
 
@@ -230,37 +238,51 @@ The tutorial provides three types of feedback:
 - Press **Escape** again to return to main menu
 
 **Q: Can I save my progress?**
-- Tutorial progress is per-session only
-- You can complete tutorials multiple times
-- Each tutorial session is independent
+- Yes - completing a tutorial automatically saves your best star rating and unlock progress to `~/.virtual_taylor_frame/progress.json`
+- This happens without any action needed from you; just finish a tutorial and it's saved
+- You can complete tutorials multiple times to improve your star rating - only your best result per tutorial is kept
+- Progress is tracked per-tutorial within a single profile on this computer (there's no multi-student/multi-profile support)
 
 ## Technical Details
 
 ### File Structure
-- `tutorial_system.py`: Core tutorial framework
+- `tutorial_system.py`: Core tutorial framework (challenges, generators, stars)
+- `progress_store.py`: Persistent single-profile save/load and level-unlock logic
 - `virtual taylor frame.py`: Main application with tutorial integration
-- Tutorial data is embedded in the code (not external files)
+- Tutorial content is generated by code (not external files); saved progress lives in `~/.virtual_taylor_frame/progress.json`
 
 ### Adding Custom Tutorials
-Educators can extend the tutorial system by editing `tutorial_system.py`:
+Educators can extend the tutorial system by editing `tutorial_system.py`. Each
+tutorial is built from a **generator function** that produces fresh random
+challenges every time it's called, rather than a fixed list:
 
 ```python
-# Example: Adding a new tutorial
-tutorial = Tutorial(
-    "My Custom Tutorial",
+# Example: Adding a new tutorial with randomized challenges
+def _gen_my_custom_tutorial(rng, count):
+    challenges = []
+    for _ in range(count):
+        a = rng.randint(1, 5)
+        challenges.append(Challenge(
+            f"What is {a} + 1?",       # Question
+            a + 1,                     # Answer
+            "Count one more.",         # Hint (optional)
+            f"{a} + 1 = {a + 1}."      # Explanation (optional)
+        ))
+    return challenges
+
+# In TutorialLibrary._create_tutorials():
+self.tutorials.append(Tutorial(
+    "my_custom_tutorial",              # Stable id (used for saved progress)
+    "My Custom Tutorial",              # Title
     "Description of what students will learn",
-    "easy"  # or "medium" or "hard"
-)
-
-tutorial.add_challenge(Challenge(
-    "What is 1 + 1?",  # Question
-    "2",                # Answer
-    "One plus one",     # Hint (optional)
-    "1 + 1 = 2"        # Explanation (optional)
+    "easy",                            # or "medium" or "hard"
+    _gen_my_custom_tutorial,
+    4                                  # Challenge count
 ))
-
-self.tutorials.append(tutorial)
 ```
+
+New tutorials are automatically added to the progression order (and thus the
+unlock chain) in the position they're appended in `_create_tutorials()`.
 
 ## Feedback and Contributions
 
@@ -278,4 +300,4 @@ Tutorial system developed as part of the Virtual Taylor Frame project to make ma
 
 ---
 
-*Last Updated: 2026-02-17*
+*Last Updated: 2026-07-22*

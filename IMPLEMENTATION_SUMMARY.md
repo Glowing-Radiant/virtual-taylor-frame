@@ -259,23 +259,25 @@ While this implementation is complete and functional, potential future additions
    - Percentages
    - Word problems
 
-2. **Progress Persistence**
-   - Save/load tutorial progress
-   - Track which tutorials completed
-   - Record best scores
-
-3. **Difficulty Customization**
-   - Variable number of challenges
+2. **Difficulty Customization**
    - Timed challenges
    - Custom hint levels
 
-4. **Additional Languages**
+3. **Additional Languages**
    - Support for multiple languages
    - Localized hints and explanations
 
+4. **Multi-Profile Support**
+   - Named student profiles with independent saved progress
+   - (Deliberately out of scope for now - single profile keeps things simple)
+
 5. **NVGT Version**
-   - Port tutorial system to NVGT version
-   - Platform-specific optimizations
+   - Port tutorial system and the progressive game system to NVGT
+   - (Deliberately out of scope for now - Tutorial Mode is Python-only; NVGT stays a plain grid tool)
+
+> "Progress Persistence" and "Randomized challenge counts per tutorial" were
+> both on this list previously - see "Progressive Game System" below, they're
+> done.
 
 ## Recent Improvements (2026-02-17)
 
@@ -302,6 +304,71 @@ Added comprehensive test suite for multi-row answer detection:
 - Validates answer detection in last row
 - Validates multi-digit answers with column work
 - Validates rejection of incorrect answers
+
+## Progressive Game System (2026-07-22)
+
+This pass fixed real inconsistencies found in the codebase and turned Tutorial
+Mode into an actual progressive game rather than 9 independent, always-open
+quizzes.
+
+### Inconsistencies fixed
+- `Tutorial.score` was declared and never read or written anywhere - it's
+  been removed and replaced by a real, stateless `compute_stars()` method.
+- Tutorial progress was lost the instant the app closed, despite
+  `TUTORIAL_GUIDE.md` explicitly documenting a "progress is per-session only"
+  FAQ answer and `IMPLEMENTATION_SUMMARY.md` (this file) listing "Progress
+  Persistence" as an unimplemented future enhancement. Both are now resolved.
+- Every tutorial replay was byte-for-byte identical (the same 4 hardcoded
+  numbers forever), despite the docs framing tutorials as repeatable practice.
+- All 9 tutorials were open from the start regardless of order, despite
+  `TUTORIAL_FLOW.md` telling students to "progress through tutorials in
+  order" - that was advice with nothing enforcing it.
+
+### What was added
+1. **Randomized challenges** (`tutorial_system.py`): each tutorial is now
+   built from a generator function instead of a fixed challenge list.
+   Replaying a tutorial produces fresh numbers every time, while preserving
+   each tutorial's original pedagogical intent (e.g. medium addition/
+   subtraction always mix carry/no-carry and borrow/no-borrow cases; the
+   PEMDAS tutorial always includes parentheses; division always divides
+   evenly).
+2. **Star ratings** (`Tutorial.compute_stars()`): each challenge scores 3
+   (solved first try, no hint), 2 (solved within 2 attempts or one hint), or
+   1 (more struggle than that); the tutorial's stars are the rounded average,
+   clamped to 1-3.
+3. **Locked progression** (`progress_store.py`): tutorials unlock one at a
+   time in the fixed order they're defined in - `easy_addition` is always
+   open; each subsequent tutorial unlocks once the previous one has been
+   completed at least once.
+4. **Persistent single profile** (`progress_store.py`): completion, best
+   stars, and play counts are saved as JSON to
+   `~/.virtual_taylor_frame/progress.json` and reloaded automatically on the
+   next launch. A missing or corrupt save file falls back to a fresh empty
+   state instead of crashing.
+5. **UI integration** (`virtual taylor frame.py`): the tutorial list speaks
+   lock status and best stars for each entry; selecting a locked tutorial
+   announces what to finish first instead of starting it; finishing a
+   tutorial announces the stars earned and any newly-unlocked tutorial, then
+   returns to the tutorial list (level-select) instead of the main menu.
+
+### Testing
+- `test_tutorials.py` updated for the generator API: validates every
+  generated challenge is internally consistent, that regenerating a tutorial
+  produces varied output across seeds, and that star scoring rewards clean
+  solves and reflects struggling runs.
+- `test_progress_store.py` (new): save/load round-trip, corrupt-file
+  fallback, best-stars-across-replays tracking, and sequential unlock
+  behavior.
+- `demo_tutorials.py` / `demo_improvements.py` updated to generate challenges
+  with a fixed seed so their output stays reproducible.
+- A headless smoke test (dummy SDL video/audio drivers) instantiated the full
+  `VirtualTaylorFrame` app, played through a tutorial via its real grid
+  input/answer-checking code path, and confirmed stars, unlocks, and disk
+  persistence all worked end-to-end.
+
+### Scope
+Per explicit direction: Python-only (the NVGT build is unaffected and stays
+a plain grid tool) and single-profile (no named multi-student profiles).
 
 ## Conclusion
 

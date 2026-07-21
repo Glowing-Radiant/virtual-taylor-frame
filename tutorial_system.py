@@ -1,46 +1,12 @@
 # Tutorial System for Virtual Taylor Frame
 # Provides interactive math lessons for visually impaired students
 
-import json
-
-
-class Tutorial:
-    """Base class for interactive math tutorials"""
-    
-    def __init__(self, title, description, difficulty):
-        self.title = title
-        self.description = description
-        self.difficulty = difficulty  # "easy", "medium", "hard"
-        self.challenges = []
-        self.current_challenge = 0
-        self.score = 0
-        
-    def add_challenge(self, challenge):
-        """Add a challenge to this tutorial"""
-        self.challenges.append(challenge)
-        
-    def get_current_challenge(self):
-        """Get the current challenge"""
-        if self.current_challenge < len(self.challenges):
-            return self.challenges[self.current_challenge]
-        return None
-        
-    def next_challenge(self):
-        """Move to the next challenge"""
-        self.current_challenge += 1
-        
-    def is_complete(self):
-        """Check if all challenges are complete"""
-        return self.current_challenge >= len(self.challenges)
-        
-    def get_progress(self):
-        """Get progress as a tuple (current, total)"""
-        return (self.current_challenge, len(self.challenges))
+import random
 
 
 class Challenge:
     """A single math challenge within a tutorial"""
-    
+
     def __init__(self, question, answer, hint=None, explanation=None):
         self.question = question
         self.answer = str(answer).strip()
@@ -48,7 +14,8 @@ class Challenge:
         self.explanation = explanation
         self.attempts = 0
         self.max_attempts = 3
-        
+        self.hint_used = False
+
     def check_answer(self, user_answer):
         """Check if the user's answer is correct"""
         self.attempts += 1
@@ -56,392 +23,506 @@ class Challenge:
         normalized_user = str(user_answer).strip().replace(" ", "")
         normalized_correct = self.answer.replace(" ", "")
         return normalized_user == normalized_correct
-        
+
     def get_hint(self):
         """Get a hint for this challenge"""
+        self.hint_used = True
         return self.hint if self.hint else "Think carefully about the problem."
-        
+
     def needs_hint(self):
         """Check if a hint should be offered"""
         return self.attempts >= 2 and self.hint is not None
 
 
+class Tutorial:
+    """A tutorial made up of freshly-generated challenges each playthrough"""
+
+    def __init__(self, tutorial_id, title, description, difficulty,
+                 challenge_generator=None, challenge_count=4):
+        self.id = tutorial_id
+        self.title = title
+        self.description = description
+        self.difficulty = difficulty  # "easy", "medium", "hard"
+        self.challenge_generator = challenge_generator
+        self.challenge_count = challenge_count
+        self.challenges = []
+        self.current_challenge = 0
+
+    def add_challenge(self, challenge):
+        """Add a challenge to this tutorial (manual/test construction)"""
+        self.challenges.append(challenge)
+
+    def generate_challenges(self, rng=None):
+        """(Re)generate this tutorial's challenges, resetting progress.
+
+        Called at the start of every playthrough so replaying a tutorial
+        presents fresh numbers instead of the same fixed problems.
+        """
+        if self.challenge_generator is not None:
+            rng = rng or random.Random()
+            self.challenges = self.challenge_generator(rng, self.challenge_count)
+        self.current_challenge = 0
+        return self.challenges
+
+    def get_current_challenge(self):
+        """Get the current challenge"""
+        if self.current_challenge < len(self.challenges):
+            return self.challenges[self.current_challenge]
+        return None
+
+    def next_challenge(self):
+        """Move to the next challenge"""
+        self.current_challenge += 1
+
+    def is_complete(self):
+        """Check if all challenges are complete"""
+        return self.current_challenge >= len(self.challenges)
+
+    def get_progress(self):
+        """Get progress as a tuple (current, total)"""
+        return (self.current_challenge, len(self.challenges))
+
+    def compute_stars(self):
+        """Rate mastery of the just-completed run as 1-3 stars.
+
+        Each challenge scores 3 (solved first try, no hint), 2 (solved
+        within 2 attempts or used one hint), or 1 (struggled more than
+        that). The tutorial's stars are the rounded average, clamped to
+        [1, 3]. Meaningful once is_complete() is True.
+        """
+        if not self.challenges:
+            return 0
+        total = 0
+        for challenge in self.challenges:
+            if challenge.attempts <= 1 and not challenge.hint_used:
+                total += 3
+            elif challenge.attempts <= 2 and not challenge.hint_used:
+                total += 2
+            else:
+                total += 1
+        stars = round(total / len(self.challenges))
+        return max(1, min(3, stars))
+
+
+def _sample_until(rng, make, predicate, max_tries=500):
+    """Rejection-sample from `make(rng)` until `predicate` holds."""
+    candidate = None
+    for _ in range(max_tries):
+        candidate = make(rng)
+        if predicate(candidate):
+            return candidate
+    return candidate
+
+
+# ---------------------------------------------------------------------------
+# Orientation tutorial: introduces the frame's own controls, not math
+# ---------------------------------------------------------------------------
+
+def _gen_basics_intro(rng, count):
+    """Fixed, non-random walkthrough of the frame's core controls.
+
+    Unlike the math generators, this always returns the same sequence -
+    it's teaching the interface itself, so there's nothing to randomize.
+    `rng` and `count` are accepted only to match the challenge_generator
+    signature every other tutorial uses.
+    """
+    return [
+        Challenge(
+            "Welcome to the Virtual Taylor Frame! This grid is where you write "
+            "numbers and math, one character per cell. Let's start simple: type "
+            "the number 5, then press Control plus Enter to check your answer.",
+            "5",
+            "Press the 5 key, then hold Control and press Enter.",
+            "Every key you press fills the current cell, and the frame speaks "
+            "each character back to you as you type."
+        ),
+        Challenge(
+            "Notice how the cursor moved to the right by itself after you typed? "
+            "That's Auto-shift, and you can turn it on or off anytime with F2. "
+            "Let's use it: type 12, then press Control plus Enter.",
+            "12",
+            "Type 1, then 2. With auto-shift on, you don't need to press the "
+            "right arrow key in between.",
+            "12 = 12. With auto-shift on, typing several digits in a row "
+            "automatically advances the cursor for you, just like writing on paper."
+        ),
+        Challenge(
+            "You can also move the cursor yourself. Type 1, then press the Right "
+            "Arrow key twice to leave a gap, then type 2. Press Control plus "
+            "Enter when you're ready.",
+            "12",
+            "Type 1, tap the right arrow key twice, then type 2.",
+            "Even with a gap between them, the frame reads 1 and 2 together as "
+            "12. Manual navigation lets you space things out however you like."
+        ),
+        Challenge(
+            "Mistakes are easy to fix. Type 9, press Backspace to delete it, "
+            "then type 8 and press Control plus Enter.",
+            "8",
+            "Backspace clears whatever is in the current cell.",
+            "Backspace deletes the current cell. Turn on Smart Delete with F3 "
+            "and Backspace will also hop back to erase the previous cell when "
+            "the current one is already empty - handy for quick corrections."
+        ),
+        Challenge(
+            "You can always ask the frame to read things back to you: Alt plus "
+            "L reads the whole current line. For now, type 3, then press "
+            "Control plus Enter to finish this one.",
+            "3",
+            "Type 3, then Control+Enter. Try Alt+L first just to hear how it works.",
+            "Alt+L reads the current row, and F1 opens a full list of every "
+            "keyboard shortcut whenever you need a reminder."
+        ),
+        Challenge(
+            "Outside of tutorials, you can do math right on the grid. Type 2+2 "
+            "exactly like that, then press Control plus Enter to finish this "
+            "tutorial.",
+            "2+2",
+            "Type the characters 2, plus, 2 - it doesn't need to be solved for "
+            "this exercise.",
+            "In Normal Mode, pressing Control+Enter on a row like 2+2 evaluates "
+            "it instantly and writes = 4 right after it. Give it a try once you "
+            "leave tutorial mode!"
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Easy tutorials (primary level)
+# ---------------------------------------------------------------------------
+
+def _gen_easy_addition(rng, count):
+    challenges = []
+    for _ in range(count):
+        a = rng.randint(1, 9)
+        b = rng.randint(1, 9)
+        challenges.append(Challenge(
+            f"What is {a} + {b}?",
+            a + b,
+            f"If you have {a} things and get {b} more, how many do you have?",
+            f"{a} + {b} = {a + b}."
+        ))
+    return challenges
+
+
+def _gen_easy_subtraction(rng, count):
+    challenges = []
+    for i in range(count):
+        # Guarantee one "subtract from itself" example to teach the zero concept.
+        force_zero = count >= 3 and i == 2
+        a = rng.randint(3, 10)
+        b = a if force_zero else rng.randint(1, a - 1)
+        answer = a - b
+        if b == a:
+            hint = "When you take away the same number, what's left?"
+            explanation = f"{a} - {b} = {answer}. Subtracting a number from itself always gives zero!"
+        else:
+            hint = f"If you have {a} things and take away {b}, how many are left?"
+            explanation = f"{a} - {b} = {answer}."
+        challenges.append(Challenge(f"What is {a} - {b}?", answer, hint, explanation))
+    return challenges
+
+
+def _gen_easy_multiplication(rng, count):
+    factors = [2, 3, 4]
+    challenges = []
+    for _ in range(count):
+        a = rng.choice(factors)
+        b = rng.randint(2, 6)
+        challenges.append(Challenge(
+            f"What is {a} x {b}?",
+            a * b,
+            f"{a} times {b} means adding {a} to itself {b} times.",
+            f"{a} x {b} = {a * b}."
+        ))
+    return challenges
+
+
+# ---------------------------------------------------------------------------
+# Medium tutorials (upper primary level)
+# ---------------------------------------------------------------------------
+
+def _gen_two_digit_addends(rng, carry):
+    def make(r):
+        return r.randint(10, 89), r.randint(10, 89)
+
+    def predicate(pair):
+        a, b = pair
+        ones_sum = (a % 10) + (b % 10)
+        return (ones_sum >= 10) == carry
+
+    return _sample_until(rng, make, predicate)
+
+
+def _gen_medium_addition(rng, count):
+    challenges = []
+    for i in range(count):
+        carry = i >= count // 2
+        a, b = _gen_two_digit_addends(rng, carry)
+        answer = a + b
+        if carry:
+            hint = "When the ones digits add up to 10 or more, carry to the tens place."
+            explanation = f"{a} + {b} = {answer}. You handled carrying correctly!"
+        else:
+            hint = "Add the ones first, then the tens."
+            explanation = f"{a} + {b} = {answer}."
+        challenges.append(Challenge(f"What is {a} + {b}?", answer, hint, explanation))
+    return challenges
+
+
+def _gen_two_digit_minuend_subtrahend(rng, borrow):
+    def make(r):
+        a = r.randint(20, 89)
+        b = r.randint(10, a - 1)
+        return a, b
+
+    def predicate(pair):
+        a, b = pair
+        return ((a % 10) < (b % 10)) == borrow
+
+    return _sample_until(rng, make, predicate)
+
+
+def _gen_medium_subtraction(rng, count):
+    challenges = []
+    for i in range(count):
+        borrow = i >= count // 2
+        a, b = _gen_two_digit_minuend_subtrahend(rng, borrow)
+        answer = a - b
+        if borrow:
+            hint = "When the ones digit is smaller, borrow from the tens place."
+            explanation = f"{a} - {b} = {answer}. You handled borrowing perfectly!"
+        else:
+            hint = "Subtract the ones first, then the tens."
+            explanation = f"{a} - {b} = {answer}."
+        challenges.append(Challenge(f"What is {a} - {b}?", answer, hint, explanation))
+    return challenges
+
+
+def _gen_medium_multiplication(rng, count):
+    challenges = []
+    for _ in range(count):
+        a = rng.randint(4, 10)
+        b = rng.randint(4, 10)
+        challenges.append(Challenge(
+            f"What is {a} x {b}?",
+            a * b,
+            f"{a} times {b} means adding {a} to itself {b} times.",
+            f"{a} x {b} = {a * b}."
+        ))
+    return challenges
+
+
+# ---------------------------------------------------------------------------
+# Hard tutorials (intermediate level)
+# ---------------------------------------------------------------------------
+
+def _mixed_template_add_mul(rng):
+    a, b, c = rng.randint(2, 9), rng.randint(2, 9), rng.randint(2, 9)
+    answer = a + b * c
+    return (f"What is {a} + {b} x {c}?", answer,
+            "Remember: do multiplication before addition!",
+            f"{a} + {b} x {c} = {answer}. Multiplication comes before addition!")
+
+
+def _mixed_template_sub_add(rng):
+    a = rng.randint(10, 20)
+    b = rng.randint(1, min(9, a - 1))
+    c = rng.randint(1, 9)
+    answer = a - b + c
+    return (f"What is {a} - {b} + {c}?", answer,
+            "When operations are the same level, work left to right.",
+            f"{a} - {b} + {c} = {answer}. Great job with left-to-right operations!")
+
+
+def _mixed_template_sub_mul(rng):
+    b, c = rng.randint(2, 5), rng.randint(2, 5)
+    a = rng.randint(b * c, b * c + 15)
+    answer = a - b * c
+    return (f"What is {a} - {b} x {c}?", answer,
+            "Which operation should you do first?",
+            f"{a} - {b} x {c} = {answer}. You remembered to multiply first!")
+
+
+def _mixed_template_mul_sub(rng):
+    a, b = rng.randint(2, 9), rng.randint(2, 9)
+    c = rng.randint(1, a * b)
+    answer = a * b - c
+    return (f"What is {a} x {b} - {c}?", answer,
+            "Think about order of operations.",
+            f"{a} x {b} - {c} = {answer}. You've mastered mixed operations!")
+
+
+_MIXED_TEMPLATES = [
+    _mixed_template_add_mul,
+    _mixed_template_sub_add,
+    _mixed_template_sub_mul,
+    _mixed_template_mul_sub,
+]
+
+
+def _gen_hard_mixed_operations(rng, count):
+    templates = list(_MIXED_TEMPLATES)
+    rng.shuffle(templates)
+    challenges = []
+    for i in range(count):
+        question, answer, hint, explanation = templates[i % len(templates)](rng)
+        challenges.append(Challenge(question, answer, hint, explanation))
+    return challenges
+
+
+def _pemdas_template_paren_add_mul(rng):
+    a, b, c = rng.randint(1, 9), rng.randint(1, 9), rng.randint(2, 9)
+    answer = (a + b) * c
+    return (f"What is ({a} + {b}) x {c}?", answer,
+            "Do what's inside parentheses first.",
+            f"({a} + {b}) x {c} = {answer}. Parentheses come first!")
+
+
+def _pemdas_template_mul_paren_sub(rng):
+    b = rng.randint(3, 9)
+    c = rng.randint(1, b - 1)
+    a = rng.randint(2, 9)
+    answer = a * (b - c)
+    return (f"What is {a} x ({b} - {c})?", answer,
+            "Solve inside the parentheses before multiplying.",
+            f"{a} x ({b} - {c}) = {answer}. Perfect!")
+
+
+def _pemdas_template_sub_paren_add(rng):
+    b, c = rng.randint(1, 9), rng.randint(1, 9)
+    a = rng.randint(b + c, b + c + 15)
+    answer = a - (b + c)
+    return (f"What is {a} - ({b} + {c})?", answer,
+            "What should you calculate first?",
+            f"{a} - ({b} + {c}) = {answer}. Excellent work!")
+
+
+def _pemdas_template_mul_add_paren_sub(rng):
+    a, b = rng.randint(2, 9), rng.randint(2, 9)
+    d = rng.randint(1, 9)
+    c = rng.randint(d, d + 9)
+    answer = a * b + (c - d)
+    return (f"What is {a} x {b} + ({c} - {d})?", answer,
+            "Use PEMDAS: parentheses first, then multiplication, then addition.",
+            f"{a} x {b} + ({c} - {d}) = {answer}. You've mastered order of operations!")
+
+
+_PEMDAS_TEMPLATES = [
+    _pemdas_template_paren_add_mul,
+    _pemdas_template_mul_paren_sub,
+    _pemdas_template_sub_paren_add,
+    _pemdas_template_mul_add_paren_sub,
+]
+
+
+def _gen_hard_order_of_operations(rng, count):
+    templates = list(_PEMDAS_TEMPLATES)
+    rng.shuffle(templates)
+    challenges = []
+    for i in range(count):
+        question, answer, hint, explanation = templates[i % len(templates)](rng)
+        challenges.append(Challenge(question, answer, hint, explanation))
+    return challenges
+
+
+def _gen_hard_division(rng, count):
+    challenges = []
+    for _ in range(count):
+        b = rng.randint(2, 9)
+        k = rng.randint(2, 9)
+        a = b * k
+        challenges.append(Challenge(
+            f"What is {a} / {b}?",
+            k,
+            f"How many groups of {b} fit into {a}?",
+            f"{a} / {b} = {k}. Division is splitting equally!"
+        ))
+    return challenges
+
+
 class TutorialLibrary:
-    """Library of all available tutorials"""
-    
+    """Library of all available tutorials, in canonical progression order"""
+
     def __init__(self):
         self.tutorials = []
         self._create_tutorials()
-        
+
     def _create_tutorials(self):
-        """Create all tutorials"""
-        # Easy tutorials for primary students
-        self._create_easy_addition()
-        self._create_easy_subtraction()
-        self._create_easy_multiplication()
-        
-        # Medium tutorials
-        self._create_medium_addition()
-        self._create_medium_subtraction()
-        self._create_medium_multiplication()
-        
-        # Hard tutorials for intermediate students
-        self._create_hard_mixed_operations()
-        self._create_hard_order_of_operations()
-        self._create_hard_division()
-        
-    def _create_easy_addition(self):
-        """Tutorial 1: Single digit addition"""
-        tutorial = Tutorial(
-            "Single Digit Addition",
+        """Create all tutorials, in the order students should play them"""
+        self.tutorials.append(Tutorial(
+            "basics_intro", "Getting Started",
+            "Learn the frame's own controls: typing, auto-shift, navigation, "
+            "delete, and reading things back.",
+            "easy", _gen_basics_intro, 6
+        ))
+        self.tutorials.append(Tutorial(
+            "easy_addition", "Single Digit Addition",
             "Learn to add single digit numbers. Place your answer in the grid and press Ctrl+Enter to check.",
-            "easy"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's start simple. What is 2 + 3?",
-            "5",
-            "Think: If you have 2 apples and get 3 more, how many do you have?",
-            "2 + 3 = 5. When you add 2 and 3, you get 5!"
+            "easy", _gen_easy_addition, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "Good! Now try: 4 + 5",
-            "9",
-            "Count up: Start from 4, then count 5 more numbers.",
-            "4 + 5 = 9. Great job!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "You're doing great! What is 7 + 2?",
-            "9",
-            "Start from 7 and count up 2 more numbers.",
-            "7 + 2 = 9. Excellent work!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Final question: 6 + 6",
-            "12",
-            "This is a double! Think about what 6 + 6 means.",
-            "6 + 6 = 12. Perfect! You completed single digit addition!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_easy_subtraction(self):
-        """Tutorial 2: Single digit subtraction"""
-        tutorial = Tutorial(
-            "Single Digit Subtraction",
+        self.tutorials.append(Tutorial(
+            "easy_subtraction", "Single Digit Subtraction",
             "Learn to subtract single digit numbers.",
-            "easy"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's subtract! What is 8 - 3?",
-            "5",
-            "If you have 8 cookies and eat 3, how many are left?",
-            "8 - 3 = 5. You got it!"
+            "easy", _gen_easy_subtraction, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "Good work! Now try: 9 - 4",
-            "5",
-            "Count down from 9 by taking away 4.",
-            "9 - 4 = 5. Excellent!"
+        self.tutorials.append(Tutorial(
+            "easy_multiplication", "Multiplication Basics",
+            "Learn multiplication with small times tables (2 to 4).",
+            "easy", _gen_easy_multiplication, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "What is 7 - 7?",
-            "0",
-            "When you take away the same number, what's left?",
-            "7 - 7 = 0. When you subtract a number from itself, you get zero!"
+        self.tutorials.append(Tutorial(
+            "medium_addition", "Two Digit Addition",
+            "Learn to add two-digit numbers, including carrying.",
+            "medium", _gen_medium_addition, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "Last one: 10 - 6",
-            "4",
-            "Start at 10 and count backward, taking away 6.",
-            "10 - 6 = 4. You've mastered single digit subtraction!"
+        self.tutorials.append(Tutorial(
+            "medium_subtraction", "Two Digit Subtraction",
+            "Learn to subtract two-digit numbers, including borrowing.",
+            "medium", _gen_medium_subtraction, 4
         ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_easy_multiplication(self):
-        """Tutorial 3: Simple multiplication"""
-        tutorial = Tutorial(
-            "Multiplication Basics",
-            "Learn multiplication with the 2 and 3 times tables.",
-            "easy"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Multiplication is repeated addition. What is 2 x 3?",
-            "6",
-            "2 times 3 means adding 2, three times. Try it!",
-            "2 x 3 = 6. That's 2 added 3 times!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Great! Now try: 3 x 4",
-            "12",
-            "3 times 4 means adding 3, four times.",
-            "3 x 4 = 12. Excellent!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "What is 2 x 5?",
-            "10",
-            "Add 2 to itself five times.",
-            "2 x 5 = 10. Perfect!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Final challenge: 4 x 3",
-            "12",
-            "4 times 3 means adding 4, three times.",
-            "4 x 3 = 12. You've learned the basics of multiplication!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_medium_addition(self):
-        """Tutorial 4: Two digit addition"""
-        tutorial = Tutorial(
-            "Two Digit Addition",
-            "Learn to add two-digit numbers.",
-            "medium"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's add bigger numbers! What is 12 + 15?",
-            "27",
-            "Add the ones first, then the tens.",
-            "12 + 15 = 27. Great work with two-digit numbers!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Now try: 23 + 34",
-            "57",
-            "Remember to add ones place first, then tens place.",
-            "23 + 34 = 57. Excellent!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Here's a tricky one: 28 + 17",
-            "45",
-            "When ones add up to more than 10, carry to the tens place.",
-            "28 + 17 = 45. You handled carrying correctly!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Final challenge: 46 + 39",
-            "85",
-            "Add ones place: if it's more than 10, remember to carry!",
-            "46 + 39 = 85. You've mastered two-digit addition!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_medium_subtraction(self):
-        """Tutorial 5: Two digit subtraction"""
-        tutorial = Tutorial(
-            "Two Digit Subtraction",
-            "Learn to subtract two-digit numbers.",
-            "medium"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's subtract larger numbers. What is 45 - 23?",
-            "22",
-            "Subtract the ones first, then the tens.",
-            "45 - 23 = 22. Great start!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Try this: 67 - 34",
-            "33",
-            "Remember: ones place first, then tens place.",
-            "67 - 34 = 33. Well done!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Here's a challenge with borrowing: 52 - 28",
-            "24",
-            "When ones digit is smaller, you need to borrow from tens.",
-            "52 - 28 = 24. You handled borrowing perfectly!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Last one: 81 - 47",
-            "34",
-            "Check if you need to borrow before subtracting.",
-            "81 - 47 = 34. You've mastered two-digit subtraction!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_medium_multiplication(self):
-        """Tutorial 6: Larger multiplication"""
-        tutorial = Tutorial(
-            "Multiplication Tables",
+        self.tutorials.append(Tutorial(
+            "medium_multiplication", "Multiplication Tables",
             "Practice multiplication up to 10.",
-            "medium"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's practice the 5 times table. What is 5 x 6?",
-            "30",
-            "Count by 5s six times, or add 5 to itself 6 times.",
-            "5 x 6 = 30. Excellent!"
+            "medium", _gen_medium_multiplication, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "What is 7 x 4?",
-            "28",
-            "7 times 4 means adding 7 four times.",
-            "7 x 4 = 28. Great work!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Try this: 8 x 6",
-            "48",
-            "8 times 6 means adding 8 six times.",
-            "8 x 6 = 48. Perfect!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Final challenge: 9 x 7",
-            "63",
-            "Tip: Think of (10 x 7) minus 7.",
-            "9 x 7 = 63. You've mastered multiplication tables!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_hard_mixed_operations(self):
-        """Tutorial 7: Mixed operations"""
-        tutorial = Tutorial(
-            "Mixed Operations",
+        self.tutorials.append(Tutorial(
+            "hard_mixed", "Mixed Operations",
             "Practice problems with addition, subtraction, and multiplication together.",
-            "hard"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's combine operations! What is 5 + 3 x 2?",
-            "11",
-            "Remember: Do multiplication before addition!",
-            "5 + 3 x 2 = 11. Multiplication comes before addition!"
+            "hard", _gen_hard_mixed_operations, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "What is 10 - 4 + 6?",
-            "12",
-            "When operations are the same level, work left to right.",
-            "10 - 4 + 6 = 12. Great job with left-to-right operations!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Try this: 15 - 2 x 3",
-            "9",
-            "Which operation should you do first?",
-            "15 - 2 x 3 = 9. You remembered to multiply first!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Final challenge: 4 x 5 - 8",
-            "12",
-            "Think about order of operations.",
-            "4 x 5 - 8 = 12. You've mastered mixed operations!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_hard_order_of_operations(self):
-        """Tutorial 8: Order of operations (PEMDAS)"""
-        tutorial = Tutorial(
-            "Order of Operations",
+        self.tutorials.append(Tutorial(
+            "hard_pemdas", "Order of Operations",
             "Learn PEMDAS: Parentheses, Exponents, Multiplication/Division, Addition/Subtraction.",
-            "hard"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Let's learn PEMDAS! What is (3 + 2) x 4?",
-            "20",
-            "Do what's inside parentheses first.",
-            "(3 + 2) x 4 = 20. Parentheses come first!"
+            "hard", _gen_hard_order_of_operations, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "What is 2 x (8 - 3)?",
-            "10",
-            "Remember: Solve inside parentheses before multiplying.",
-            "2 x (8 - 3) = 10. Perfect!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Try this: 20 - (4 + 6)",
-            "10",
-            "What should you calculate first?",
-            "20 - (4 + 6) = 10. Excellent work!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Challenge: 3 x 4 + (10 - 2)",
-            "20",
-            "Use PEMDAS: Parentheses first, then multiplication, then addition.",
-            "3 x 4 + (10 - 2) = 20. You've mastered order of operations!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
-    def _create_hard_division(self):
-        """Tutorial 9: Division basics"""
-        tutorial = Tutorial(
-            "Division Basics",
+        self.tutorials.append(Tutorial(
+            "hard_division", "Division Basics",
             "Learn to divide numbers evenly.",
-            "hard"
-        )
-        
-        tutorial.add_challenge(Challenge(
-            "Division is splitting into equal parts. What is 10 / 2?",
-            "5",
-            "10 divided by 2 means: split 10 into 2 equal groups.",
-            "10 / 2 = 5. Division is splitting equally!"
+            "hard", _gen_hard_division, 4
         ))
-        
-        tutorial.add_challenge(Challenge(
-            "What is 15 / 3?",
-            "5",
-            "How many groups of 3 fit into 15?",
-            "15 / 3 = 5. Perfect!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Try this: 24 / 4",
-            "6",
-            "Think: 4 times what number equals 24?",
-            "24 / 4 = 6. Great work!"
-        ))
-        
-        tutorial.add_challenge(Challenge(
-            "Final challenge: 36 / 6",
-            "6",
-            "How many 6s make 36?",
-            "36 / 6 = 6. You've learned division basics!"
-        ))
-        
-        self.tutorials.append(tutorial)
-        
+
     def get_tutorials_by_difficulty(self, difficulty):
         """Get all tutorials of a specific difficulty"""
         return [t for t in self.tutorials if t.difficulty == difficulty]
-        
+
     def get_all_tutorials(self):
         """Get all tutorials"""
         return self.tutorials
-        
+
     def get_tutorial(self, index):
         """Get a specific tutorial by index"""
         if 0 <= index < len(self.tutorials):
             return self.tutorials[index]
         return None
+
+    def get_tutorial_by_id(self, tutorial_id):
+        """Get a specific tutorial by its stable id"""
+        for tutorial in self.tutorials:
+            if tutorial.id == tutorial_id:
+                return tutorial
+        return None
+
+    def get_progression_order(self):
+        """Get tutorial ids in the fixed order students unlock them"""
+        return [t.id for t in self.tutorials]

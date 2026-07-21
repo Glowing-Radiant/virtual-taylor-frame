@@ -34,9 +34,16 @@ This document describes the user flow through the Tutorial Mode.
 │                                 │
 │  Easy:                          │
 │  1. Single Digit Addition       │
+│     (Not yet completed)         │
 │  2. Single Digit Subtraction    │
+│     (Locked - finish #1 first)  │
 │  3. Multiplication Basics       │
+│     (Locked - finish #2 first)  │
 │  4. Back                        │
+│                                 │
+│  Locked entries announce what   │
+│  to finish first instead of     │
+│  starting when selected.        │
 └────────────┬────────────────────┘
              │
              ▼
@@ -91,15 +98,28 @@ This document describes the user flow through the Tutorial Mode.
 │                                 │
 │  "Congratulations!"             │
 │  "You completed Single Digit    │
-│   Addition!"                    │
+│   Addition and earned 3 of 3    │
+│   stars!"                       │
+│                                 │
+│  Progress saved to disk.        │
+│  If this was the last locked    │
+│  tutorial before the next one:  │
+│  "New tutorial unlocked:        │
+│   Single Digit Subtraction!"    │
 │                                 │
 │  Press any key to continue      │
 └────────────┬────────────────────┘
              │
-             └─────────────────────┘
+             ▼
+   Back to Tutorial Selection
+   (level-select, ready to pick
+    the next unlocked tutorial)
 ```
 
 ## Tutorial Structure
+
+Numbers below are examples of each tutorial's style/range - every playthrough
+generates new random challenges, so the exact problems shown differ each time.
 
 ### Easy Level (Ages 6-10)
 ```
@@ -179,7 +199,8 @@ Any time: Press F6 → Manual hint request
 Move cursor        → Move sound (♪)
 Correct answer     → Content sound (♪♪) + "Correct!"
 Incorrect answer   → Empty sound (♪) + "Try again"
-Tutorial complete  → "Congratulations!" message
+Tutorial complete  → "Congratulations! ... earned N of 3 stars." + optional
+                      "New tutorial unlocked: ..." message
 ```
 
 ### Accessibility Features
@@ -189,6 +210,14 @@ Tutorial complete  → "Congratulations!" message
 ✓ Audio cues for all actions
 ✓ Clear spoken questions and answers
 ✓ Tactile grid for entering answers
+```
+
+### Progressive Game System
+```
+✓ Randomized challenges — fresh numbers every playthrough
+✓ Locked levels — complete a tutorial to unlock the next one in sequence
+✓ Star ratings (1-3) — based on attempts/hints used per challenge
+✓ Persistent save — progress written to ~/.virtual_taylor_frame/progress.json
 ```
 
 ## Command Summary
@@ -206,10 +235,20 @@ Tutorial complete  → "Congratulations!" message
 
 ## Tutorial Progression
 
-Students should progress through tutorials in order:
+Progression is **enforced**, not just suggested: tutorials unlock one at a
+time in this fixed order, and a locked tutorial cannot be started until the
+previous one is completed at least once.
+
+```
+easy_addition → easy_subtraction → easy_multiplication
+    → medium_addition → medium_subtraction → medium_multiplication
+    → hard_mixed → hard_pemdas → hard_division
+```
 
 1. **Start with Easy**: Master single-digit operations
 2. **Move to Medium**: Build on basics with larger numbers
 3. **Advance to Hard**: Learn complex operations and rules
 
-Each tutorial can be repeated as many times as needed for mastery.
+Each unlocked tutorial can be replayed as many times as needed for mastery -
+every replay generates new random challenges, and only your best star rating
+is kept.

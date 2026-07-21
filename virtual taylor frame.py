@@ -11,6 +11,8 @@ import string
 import math
 import json
 from tutorial_system import TutorialLibrary, Tutorial, Challenge
+from progress_store import ProgressStore
+from settings_store import SettingsStore
 
 
 class VirtualTaylorFrame:
@@ -32,13 +34,15 @@ class VirtualTaylorFrame:
         self.alt_pressed = False
         self.shift_pressed = False
         tolk.load()
-        self.auto_shift = False
-        self.smart_delete = False
+        self.settings_store = SettingsStore()
+        self.auto_shift = self.settings_store.get_auto_shift_default()
+        self.smart_delete = self.settings_store.get_smart_delete_default()
         self.fast_move = False
         self.last_move_time = 0
         self.tutorial_mode = False
         self.current_tutorial = None
         self.tutorial_library = TutorialLibrary()
+        self.progress_store = ProgressStore()
         self.awaiting_tutorial_answer = False
 
 
@@ -300,8 +304,8 @@ class VirtualTaylorFrame:
     def show_help(self):
         help_text = """
         F1: Show this help message.
-        F2: Toggle auto-shift cursor.
-        F3: Toggle smart delete.
+        F2: Toggle auto-shift cursor for this session.
+        F3: Toggle smart delete for this session.
         F4: Toggle fast move.
         F5: Resize grid.
         F6: Get hint (Tutorial Mode only).
@@ -321,6 +325,8 @@ class VirtualTaylorFrame:
         Backspace: Delete content.
         Ctrl + Backspace: Clear entire grid.
         Escape: Exit program (with confirmation).
+        Whether auto-shift and smart delete start on by default can be set
+        in the Settings panel from the main menu.
         """
         self.speak(help_text)
 
@@ -569,11 +575,11 @@ class VirtualTaylorFrame:
     def show_main_menu(self):
         """Show main menu to choose between Normal and Tutorial mode"""
         active = True
-        options = ["Normal Mode", "Tutorial Mode", "Exit"]
+        options = ["Normal Mode", "Tutorial Mode", "Settings", "Exit"]
         selected_index = 0
-        
+
         self.speak(f"Welcome to Virtual Taylor Frame. Select mode: {options[selected_index]}")
-        
+
         while active:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -593,6 +599,9 @@ class VirtualTaylorFrame:
                             self.speak("Entering Tutorial Mode")
                             self.tutorial_mode = True
                             return self.show_tutorial_menu()
+                        elif selected_index == 2:  # Settings
+                            self.show_settings_menu()
+                            self.speak(f"Select mode: {options[selected_index]}")
                         else:  # Exit
                             pygame.quit()
                             sys.exit()
@@ -611,7 +620,64 @@ class VirtualTaylorFrame:
                 self.screen.blit(opt_surface, (20, 100 + i * 40))
                 
             pygame.display.flip()
-            
+
+    def show_settings_menu(self):
+        """Settings panel: choose whether Auto-shift / Smart delete start on by default"""
+        active = True
+        selected_index = 0
+
+        def option_labels():
+            return [
+                f"Auto-shift by default: {'On' if self.settings_store.get_auto_shift_default() else 'Off'}",
+                f"Smart delete by default: {'On' if self.settings_store.get_smart_delete_default() else 'Off'}",
+                "Back to Main Menu",
+            ]
+
+        options = option_labels()
+        self.speak(f"Settings. {options[selected_index]}")
+
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                        selected_index = (selected_index + (1 if event.key == pygame.K_DOWN else -1)) % len(options)
+                        self.play_sound(self.move_sound)
+                        self.speak(options[selected_index])
+                    elif event.key == pygame.K_RETURN:
+                        if selected_index == 0:  # Auto-shift default
+                            new_value = not self.settings_store.get_auto_shift_default()
+                            self.settings_store.set_auto_shift_default(new_value)
+                            self.auto_shift = new_value
+                            options = option_labels()
+                            self.play_sound(self.move_sound)
+                            self.speak(options[selected_index])
+                        elif selected_index == 1:  # Smart delete default
+                            new_value = not self.settings_store.get_smart_delete_default()
+                            self.settings_store.set_smart_delete_default(new_value)
+                            self.smart_delete = new_value
+                            options = option_labels()
+                            self.play_sound(self.move_sound)
+                            self.speak(options[selected_index])
+                        else:  # Back to Main Menu
+                            active = False
+                    elif event.key == pygame.K_ESCAPE:
+                        active = False
+
+            self.screen.fill((255, 255, 255))
+            title_text = "Settings"
+            title_surface = self.font.render(title_text, True, (0, 0, 0))
+            self.screen.blit(title_surface, (20, 40))
+
+            for i, option in enumerate(options):
+                color = (255, 0, 0) if i == selected_index else (0, 0, 0)
+                opt_surface = self.font.render(option, True, color)
+                self.screen.blit(opt_surface, (20, 100 + i * 40))
+
+            pygame.display.flip()
+
     def show_tutorial_menu(self):
         """Show tutorial selection menu"""
         active = True
@@ -624,8 +690,14 @@ class VirtualTaylorFrame:
         
         options = ["Easy Tutorials", "Medium Tutorials", "Hard Tutorials", "Back to Main Menu"]
         selected_index = 0
-        
-        self.speak(f"Tutorial Menu. Select difficulty: {options[selected_index]}")
+
+        order = self.tutorial_library.get_progression_order()
+        total_stars = self.progress_store.total_stars(order)
+        completed = self.progress_store.completed_count(order)
+        self.speak(
+            f"Tutorial Menu. {completed} of {len(order)} levels complete, "
+            f"{total_stars} total stars. Select difficulty: {options[selected_index]}"
+        )
         
         while active:
             for event in pygame.event.get():
@@ -661,18 +733,30 @@ class VirtualTaylorFrame:
                 
             pygame.display.flip()
             
+    def _tutorial_status_text(self, tutorial):
+        """Spoken/displayed status for a tutorial: locked, stars, or unplayed"""
+        order = self.tutorial_library.get_progression_order()
+        if not self.progress_store.is_unlocked(tutorial.id, order):
+            prev_tutorial = self.tutorial_library.get_tutorial_by_id(order[order.index(tutorial.id) - 1])
+            return f"Locked - finish {prev_tutorial.title} first"
+        stars = self.progress_store.get_best_stars(tutorial.id)
+        if stars > 0:
+            return f"{stars} of 3 stars"
+        return "Not yet completed"
+
     def show_tutorial_list(self, tutorial_indices, difficulty_name):
         """Show list of tutorials for a difficulty level"""
         active = True
         tutorials = self.tutorial_library.get_all_tutorials()
         tutorial_list = [tutorials[i] for i in tutorial_indices]
-        
-        options = [f"{i+1}. {t.title}" for i, t in enumerate(tutorial_list)]
+        order = self.tutorial_library.get_progression_order()
+
+        options = [f"{i+1}. {t.title} ({self._tutorial_status_text(t)})" for i, t in enumerate(tutorial_list)]
         options.append("Back")
         selected_index = 0
-        
+
         self.speak(f"{difficulty_name} Tutorials. {options[selected_index]}")
-        
+
         while active:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -688,9 +772,14 @@ class VirtualTaylorFrame:
                             self.speak(options[selected_index])
                     elif event.key == pygame.K_RETURN:
                         if selected_index < len(tutorial_list):
-                            self.current_tutorial = tutorial_list[selected_index]
-                            self.start_tutorial()
-                            return True
+                            chosen = tutorial_list[selected_index]
+                            if not self.progress_store.is_unlocked(chosen.id, order):
+                                self.play_sound(self.empty_sound)
+                                self.speak(self._tutorial_status_text(chosen))
+                            else:
+                                self.current_tutorial = chosen
+                                self.start_tutorial()
+                                return True
                         else:  # Back
                             return False
                     elif event.key == pygame.K_ESCAPE:
@@ -715,7 +804,8 @@ class VirtualTaylorFrame:
         self.clear_grid()
         self.current_pos = Vector2(0, 0)
         self.awaiting_tutorial_answer = False
-        
+        self.current_tutorial.generate_challenges()
+
         self.speak(f"Starting tutorial: {self.current_tutorial.title}. {self.current_tutorial.description}")
         pygame.time.wait(1000)
         self.present_next_challenge()
@@ -760,7 +850,10 @@ class VirtualTaylorFrame:
                     break
             
             if not has_content:
-                self.speak("Please enter your answer and press Ctrl+Enter to check.")
+                # A blank grid can be a legitimate mid-step state (e.g. right after
+                # deleting something), so remind them what the step actually asked
+                # for instead of a generic nudge that gives no way back on track.
+                self.speak("The grid is empty right now. " + challenge.question)
             else:
                 self.play_sound(self.empty_sound)
                 if challenge.needs_hint():
@@ -793,11 +886,31 @@ class VirtualTaylorFrame:
             self.speak("Hint: " + hint)
             
     def finish_tutorial(self):
-        """Finish the current tutorial"""
-        self.speak(f"Congratulations! You've completed {self.current_tutorial.title}. Press any key to return to the tutorial menu.")
+        """Finish the current tutorial: score it, save progress, announce unlocks"""
+        order = self.tutorial_library.get_progression_order()
+        tutorial_id = self.current_tutorial.id
+        idx = order.index(tutorial_id) if tutorial_id in order else -1
+        next_id = order[idx + 1] if 0 <= idx + 1 < len(order) else None
+        was_next_unlocked_before = self.progress_store.is_unlocked(next_id, order) if next_id else False
+
+        stars = self.current_tutorial.compute_stars()
+        self.progress_store.record_completion(tutorial_id, stars)
+
+        self.speak(
+            f"Congratulations! You've completed {self.current_tutorial.title} "
+            f"and earned {stars} of 3 stars."
+        )
+        pygame.time.wait(1500)
+
+        if next_id and not was_next_unlocked_before and self.progress_store.is_unlocked(next_id, order):
+            next_tutorial = self.tutorial_library.get_tutorial_by_id(next_id)
+            self.speak(f"New tutorial unlocked: {next_tutorial.title}!")
+            pygame.time.wait(1000)
+
+        self.speak("Press any key to return to the tutorial menu.")
         self.tutorial_mode = False
         self.awaiting_tutorial_answer = False
-        
+
         # Wait for key press
         waiting = True
         while waiting:
@@ -808,8 +921,12 @@ class VirtualTaylorFrame:
                 elif event.type == pygame.KEYDOWN:
                     waiting = False
                     break
-                    
-        self.show_main_menu()
+
+        if not self.show_tutorial_menu():
+            # "Back to Main Menu" (or Escape) was chosen with no new tutorial
+            # started, so the main menu needs to be shown explicitly here -
+            # otherwise control just falls back into the grid-editing loop.
+            self.show_main_menu()
 
     def draw(self):
 
